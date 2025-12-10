@@ -1,0 +1,122 @@
+from __future__ import annotations
+
+import logging
+import os
+from dataclasses import dataclass
+
+import dspy
+from dspy import JSONAdapter
+
+from .core.chunking import get_transcript_words_count
+from .core.summarizer import generate_summary_outputs
+from .core.text_utils import build_markdown
+from .core.youtube_client import get_transcription, get_video_data, save_summary
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SummaryConfig:
+    host: str | None
+    model: str
+    target_chunk_words: int
+    max_tokens: int
+    temperature: float
+    force: bool
+    include_summary: bool
+    include_key_points: bool
+    max_retries: int
+    print_output: bool
+    save_output: bool
+
+
+def configure_dspy(config: SummaryConfig) -> None:
+    logger.debug(
+        "Configuring DSPy with model=%s host=%s max_tokens=%d temperature=%.2f",
+        config.model,
+        config.host,
+        config.max_tokens,
+        config.temperature,
+    )
+
+    lm = dspy.LM(
+        model=config.model,
+        model_type="chat",
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+        api_base=config.host,
+        cache=False,
+    )
+    dspy.configure(lm=lm, adapter=JSONAdapter())
+
+
+def _summary_has_section(section: str, content: str) -> bool:
+    """Check if the summary content has a specific section."""
+    return f"## {section}" in content
+
+
+def _exist_summary(summary_path: str) -> bool:
+    """Check if the summary file exists."""
+    return os.path.exists(summary_path)
+
+
+def _is_summary_complete(summary_path: str, config: SummaryConfig) -> bool:
+    """Check if the existing summary file contains the requested sections."""
+    with open(summary_path, "r", encoding="utf-8") as f:
+        existing = f.read()
+
+    return (
+        not config.include_summary or _summary_has_section("Summary", existing)
+    ) and (
+        not config.include_key_points or _summary_has_section("Key Points", existing)
+    )
+
+
+def summarize_video_url(url: str, config: SummaryConfig) -> None:
+    video_id, video_title = get_video_data(url)
+    logger.info("Processing video %s", video_id)
+
+    summary_path = os.path.join("summary", f"{video_id}.md")
+    logger.debug("Summary output path: %s", summary_path)
+
+    if not config.force and _exist_summary(summary_path):
+        if _is_summary_complete(summary_path, config):
+            logger.info(
+                "Summary with requested sections already exists. Use --force to regenerate."
+            )
+            with open(summary_path, "r", encoding="utf-8") as f:
+                existing = f.read()
+            if config.print_output:
+                print(existing)
+            return
+
+        logger.debug("Existing summary missing requested sections; regenerating.")
+
+    os.makedirs("summary", exist_ok=True)
+
+    transcript = get_transcription(video_id)
+    logger.debug(
+        "Transcript contains %d words.", get_transcript_words_count(transcript)
+    )
+
+    configure_dspy(config)
+
+    final_summary, key_points = generate_summary_outputs(
+        serialized_transcript=transcript,
+        target_chunk_words=config.target_chunk_words,
+        include_summary=config.include_summary,
+        include_key_points=config.include_key_points,
+        max_retries=config.max_retries,
+    )
+
+    markdown_summary = build_markdown(
+        video_title,
+        final_summary if config.include_summary else None,
+        key_points if config.include_key_points else None,
+    )
+
+    logger.debug("Output generated with %d characters", len(markdown_summary))
+    if config.print_output:
+        print(markdown_summary)
+    if config.save_output:
+        save_summary(video_id, markdown_summary)

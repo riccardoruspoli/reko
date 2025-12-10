@@ -1,0 +1,31 @@
+[project]
+name = "reko"
+version = "0.0.1"
+description = "A YouTube video summarizer using LLMs."
+readme = "README.md"
+authors = [
+    { name = "Riccardo Ruspoli", email = "riccardoruspoli@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "dspy>=3.0.4",
+    "ollama>=0.6.1",
+    "pytubefix>=10.3.5",
+    "sentence-transformers>=5.1.2",
+    "setuptools>=80.9.0",
+    "tqdm>=4.67.1",
+    "youtube-transcript-api>=1.2.3",
+]
+
+[project.scripts]
+reko = "reko.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"

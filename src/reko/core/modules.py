@@ -1,0 +1,38 @@
+from typing import Any
+
+import dspy
+
+from .signatures import (
+    AggregateSummarySignature,
+    ChunkSummarySignature,
+    KeyPointsSignature,
+)
+
+
+class ChunkSummarizer(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.predict = dspy.Predict(ChunkSummarySignature)
+
+    def forward(self, chunk_text: str, chunk_context: str) -> Any:
+        return self.predict(chunk_text=chunk_text, chunk_context=chunk_context)
+
+
+class AggregateSummarizer(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.predict = dspy.Predict(AggregateSummarySignature)
+
+    def forward(self, mapped_chunks: str, reduce_context: str) -> Any:
+        return self.predict(mapped_chunks=mapped_chunks, reduce_context=reduce_context)
+
+
+class KeyPointsGenerator(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.predict = dspy.Predict(KeyPointsSignature)
+
+    def forward(self, mapped_chunks: str, final_summary: str, guidance: str) -> Any:
+        return self.predict(
+            mapped_chunks=mapped_chunks, final_summary=final_summary, guidance=guidance
+        )

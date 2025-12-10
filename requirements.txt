@@ -1,0 +1,6 @@
+ollama
+youtube-transcript-api
+pytubefix
+dspy
+tqdm
+setuptools
