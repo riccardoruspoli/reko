@@ -58,3 +58,18 @@ class KeyPointsSignature(dspy.Signature):
             "Each entry should be a single, concrete sentence retaining names, numbers, and outcomes."
         )
     )
+
+
+class TranslateSignature(dspy.Signature):
+    """Translate text into the target language while preserving meaning and structure."""
+
+    source_text: str = dspy.InputField(
+        desc="Original text to translate. Can be a paragraph or bullet list."
+    )
+    target_language: str = dspy.InputField(desc="Target language for the translation.")
+    guidance: str = dspy.InputField(
+        desc="Instructions about tone and formatting to preserve."
+    )
+    translated_text: str = dspy.OutputField(
+        desc="Accurate translation in the target language retaining formatting."
+    )

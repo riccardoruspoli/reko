@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import logging
 
+from iso639 import Lang
+
 from .app import SummaryConfig, summarize_video_url
 
 logger = logging.getLogger(__name__)
@@ -55,6 +57,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=3,
         help="Maximum attempts per LLM call after the first failed attempt before failing. Must be greater than or equal to 0.",
+    )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default="en",
+        help="Target language (ISO code) for transcript retrieval and summarization.",
     )
     parser.add_argument(
         "--force",
@@ -135,6 +143,7 @@ def main() -> None:
         max_retries=int(args.max_retries),
         print_output=bool(args.print_output),
         save_output=bool(args.save_output),
+        target_language=Lang(args.language),
     )
 
     summarize_video_url(args.url, config)

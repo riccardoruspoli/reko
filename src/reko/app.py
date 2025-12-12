@@ -5,10 +5,15 @@ import os
 from dataclasses import dataclass
 
 import dspy
+from iso639 import Lang
 from dspy import JSONAdapter
 
 from .core.chunking import get_transcript_words_count
-from .core.summarizer import generate_summary_outputs
+from .core.summarizer import (
+    generate_summary_outputs,
+    translate_key_points,
+    translate_text,
+)
 from .core.text_utils import build_markdown
 from .core.youtube_client import get_transcription, get_video_data, save_summary
 
@@ -28,6 +33,7 @@ class SummaryConfig:
     max_retries: int
     print_output: bool
     save_output: bool
+    target_language: Lang
 
 
 def configure_dspy(config: SummaryConfig) -> None:
@@ -92,11 +98,16 @@ def summarize_video_url(url: str, config: SummaryConfig) -> None:
 
         logger.debug("Existing summary missing requested sections; regenerating.")
 
-    os.makedirs("summary", exist_ok=True)
-
-    transcript = get_transcription(video_id)
+    transcript, transcript_language = get_transcription(
+        video_id, config.target_language.pt1
+    )
     logger.debug(
         "Transcript contains %d words.", get_transcript_words_count(transcript)
+    )
+    logger.info(
+        "Transcript language resolved to %s (target %s).",
+        Lang(transcript_language).name,
+        config.target_language.name,
     )
 
     configure_dspy(config)
@@ -107,7 +118,27 @@ def summarize_video_url(url: str, config: SummaryConfig) -> None:
         include_summary=config.include_summary,
         include_key_points=config.include_key_points,
         max_retries=config.max_retries,
+        output_language=Lang(transcript_language).name,
     )
+
+    if config.target_language.pt1 != transcript_language:
+        logger.info(
+            "Translating outputs from %s to %s",
+            Lang(transcript_language).name,
+            config.target_language.name,
+        )
+        if config.include_summary:
+            final_summary = translate_text(
+                final_summary,
+                target_language=config.target_language.name,
+                max_retries=config.max_retries,
+            )
+        if config.include_key_points:
+            key_points = translate_key_points(
+                key_points,
+                target_language=config.target_language.name,
+                max_retries=config.max_retries,
+            )
 
     markdown_summary = build_markdown(
         video_title,

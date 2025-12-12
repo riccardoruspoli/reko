@@ -164,15 +164,20 @@ def _process_segment(
     return current_text_parts, current_words, chunk_start, chunk_end
 
 
-def build_chunk_context(chunk: TranscriptChunk, total_chunks: int) -> str:
+def build_chunk_context(
+    chunk: TranscriptChunk, total_chunks: int, language: str
+) -> str:
     """Describe a chunk for prompting (position, timestamps, word count)."""
     start_ts = format_timestamp(chunk.start)
     end_ts = format_timestamp(chunk.end)
-    return (
+    context = (
         f"Chunk {chunk.index + 1} of {total_chunks}. "
         f"Coverage {start_ts} to {end_ts} with {chunk.word_count} words. "
         "Summarize faithfully and avoid duplication with other chunks."
     )
+    if language:
+        context += f" Write in {language}."
+    return context
 
 
 def format_mapped_chunks(mapped: Sequence[dict[str, Any]]) -> str:

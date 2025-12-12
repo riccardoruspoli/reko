@@ -4,3 +4,4 @@ pytubefix
 dspy
 tqdm
 setuptools
+iso639-lang

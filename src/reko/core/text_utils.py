@@ -49,11 +49,11 @@ def build_markdown(
     lines = [f"# {title.strip()}"]
 
     if tl_dr:
-        lines.extend(["", "## Summary", tl_dr.strip()])
+        lines.extend(["", "## Summary", "", tl_dr.strip()])
 
     points = [str(point).strip() for point in key_points or [] if str(point).strip()]
     if points:
-        lines.extend(["", "## Key Points"])
+        lines.extend(["", "## Key Points", ""])
         for point in points:
             lines.append(f"- {point}")
 
