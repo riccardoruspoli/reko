@@ -5,8 +5,8 @@ import os
 from dataclasses import dataclass
 
 import dspy
-from iso639 import Lang
 from dspy import JSONAdapter
+from iso639 import Lang
 
 from .core.chunking import get_transcript_words_count
 from .core.summarizer import (
@@ -153,3 +153,18 @@ def summarize_video_url(url: str, config: SummaryConfig) -> None:
         print(markdown_summary)
     if config.save_output:
         save_summary(video_id, markdown_summary)
+
+
+def summarize(input_value: str, config: SummaryConfig) -> None:
+    """Summarize either a single URL or a text file containing one URL per line."""
+    if os.path.isfile(input_value):
+        logger.info("Input is a batch file; processing multiple URLs.")
+        with open(input_value, "r", encoding="utf-8") as f:
+            urls = [line.strip() for line in f if line.strip()]
+        if not urls:
+            raise ValueError(f"No URLs found in batch file: {input_value}")
+        for url in urls:
+            summarize_video_url(url, config)
+        return
+
+    summarize_video_url(input_value, config)

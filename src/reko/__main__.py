@@ -5,7 +5,7 @@ import logging
 
 from iso639 import Lang
 
-from .app import SummaryConfig, summarize_video_url
+from .app import SummaryConfig, summarize
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,11 @@ def parse_args() -> argparse.Namespace:
         description="YouTube LLM Video Summarizer",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("url", type=str, help="YouTube video URL.")
+    parser.add_argument(
+        "url",
+        type=str,
+        help="YouTube video URL or a text file path (one URL per line).",
+    )
     parser.add_argument(
         "model",
         type=str,
@@ -152,7 +156,7 @@ def main() -> None:
         think=bool(args.think),
     )
 
-    summarize_video_url(args.url, config)
+    summarize(args.url, config)
 
 
 if __name__ == "__main__":

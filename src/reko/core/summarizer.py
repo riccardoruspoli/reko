@@ -3,11 +3,7 @@ from typing import Any, Sequence
 
 from tqdm import tqdm
 
-from .chunking import (
-    build_chunk_context,
-    chunk_transcript,
-    format_mapped_chunks,
-)
+from .chunking import build_chunk_context, chunk_transcript, format_mapped_chunks
 from .modules import (
     AggregateSummarizer,
     ChunkSummarizer,
