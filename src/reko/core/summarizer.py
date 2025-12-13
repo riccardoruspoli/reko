@@ -12,6 +12,24 @@ from .modules import (
 )
 from .text_utils import is_valid_tldr, normalize_key_points, normalize_sequence
 
+LENGTH_PROFILES: dict[str, dict[str, object]] = {
+    "short": {
+        "length_guidance": "Make this concise: keep only the most important facts and outcomes.",
+        "bullet_ranges": (1, 3),
+        "min_words_ratio": 0.2,
+    },
+    "medium": {
+        "length_guidance": "Balance concision and coverage: include key details without being exhaustive.",
+        "bullet_ranges": (3, 5),
+        "min_words_ratio": 0.4,
+    },
+    "long": {
+        "length_guidance": "Be detailed and thorough: preserve most concrete details from the chunk summaries.",
+        "bullet_ranges": (5, 7),
+        "min_words_ratio": 0.6,
+    },
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,6 +96,7 @@ def aggregate_chunk_results(
     mapped_results: Sequence[dict[str, Any]],
     max_retries: int,
     language: str,
+    summary_length: str,
 ) -> str:
     if not mapped_results:
         raise RuntimeError(
@@ -87,18 +106,20 @@ def aggregate_chunk_results(
     logger.info("Starting reduce step for %d chunks.", len(mapped_results))
     aggregator = AggregateSummarizer()
     chunk_count = len(mapped_results)
-    source_word_estimate = sum(
+    source_words = sum(
         len(str(entry.get("summary", "")).split()) for entry in mapped_results
     )
-    min_summary_words = max(40, int(source_word_estimate * 0.6))
+    min_summary_words = max(
+        40,
+        source_words * LENGTH_PROFILES.get(summary_length).get("min_words_ratio"),
+    )
 
     reduce_context = (
         f"The transcript was processed in {chunk_count} chunks."
-        " Merge these chunk summaries into a coherent, polished narrative."
-        " Do not shorten, compress, or generalize any content."
-        " Preserve every concrete detail and factual element from the chunk summaries."
+        " Merge these chunk summaries into a coherent, polished narrative in chronological order. "
+        f"{LENGTH_PROFILES.get(summary_length).get('length_guidance')}"
+        f" The summary should be at least {min_summary_words} words long."
         " You may lightly rewrite opening/closing clauses to create smooth transitions between chunks."
-        " Maintain chronological order, keep the length comparable to the combined input, and avoid adding new information."
     )
     if language:
         reduce_context += f" Respond in {language}."
@@ -134,6 +155,7 @@ def generate_key_points(
     final_summary: str,
     max_retries: int,
     language: str,
+    summary_length: str,
 ) -> list[str]:
     if not mapped_results and not final_summary:
         raise RuntimeError(
@@ -144,12 +166,10 @@ def generate_key_points(
 
     generator = KeyPointsGenerator()
     formatted_chunks = format_mapped_chunks(mapped_results) if mapped_results else ""
-    chunk_count = len(mapped_results)
 
-    # minimum 5, maximum 12, +/-2
-    bullet_target = max(5, min(12, chunk_count + 3))
+    min_bullets, max_bullets = LENGTH_PROFILES.get(summary_length).get("bullet_ranges")
     guidance = (
-        f"Create {bullet_target} +/-2 bullet-style key points in chronological order."
+        f"Create between {min_bullets} and {max_bullets} bullet-style key points in chronological order."
         " Each bullet must be a single, concrete sentence that preserves names, numbers, and outcomes."
         " Cover the full scope of the mapped chunks without adding new information."
     )
@@ -184,6 +204,7 @@ def generate_summary_outputs(
     include_key_points: bool,
     max_retries: int,
     output_language: str,
+    summary_length: str,
 ) -> tuple[str, list[str]]:
     mapped_results = summarize_chunks(
         serialized_transcript=serialized_transcript,
@@ -195,6 +216,7 @@ def generate_summary_outputs(
         mapped_results=mapped_results,
         max_retries=max_retries,
         language=output_language,
+        summary_length=summary_length,
     )
     key_points: list[str] = []
     if include_key_points:
@@ -203,6 +225,7 @@ def generate_summary_outputs(
             final_summary=final_summary,
             max_retries=max_retries,
             language=output_language,
+            summary_length=summary_length,
         )
     return final_summary if include_summary else "", key_points
 

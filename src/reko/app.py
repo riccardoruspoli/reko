@@ -34,6 +34,7 @@ class SummaryConfig:
     print_output: bool
     save_output: bool
     target_language: Lang
+    length: str
     think: bool
 
 
@@ -121,6 +122,7 @@ def summarize_video_url(url: str, config: SummaryConfig) -> None:
         include_key_points=config.include_key_points,
         max_retries=config.max_retries,
         output_language=Lang(transcript_language).name,
+        summary_length=config.length,
     )
 
     if config.target_language.pt1 != transcript_language:

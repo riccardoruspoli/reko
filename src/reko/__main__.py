@@ -69,6 +69,13 @@ def parse_args() -> argparse.Namespace:
         help="Target language (ISO code) for transcript retrieval and summarization.",
     )
     parser.add_argument(
+        "--length",
+        type=str,
+        choices=("short", "medium", "long"),
+        default="medium",
+        help="Desired summary length and key points count.",
+    )
+    parser.add_argument(
         "--think",
         action="store_true",
         help="Enable 'think' mode for the Ollama-hosted language model.",
@@ -153,6 +160,7 @@ def main() -> None:
         print_output=bool(args.print_output),
         save_output=bool(args.save_output),
         target_language=Lang(args.language),
+        length=str(args.length),
         think=bool(args.think),
     )
 
