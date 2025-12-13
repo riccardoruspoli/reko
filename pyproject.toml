@@ -9,9 +9,9 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "dspy>=3.0.4",
+    "iso639-lang>=2.6.3",
     "ollama>=0.6.1",
-    "pytubefix>=10.3.5",
-    "sentence-transformers>=5.1.2",
+    "pytubefix>=10.3.6",
     "setuptools>=80.9.0",
     "tqdm>=4.67.1",
     "youtube-transcript-api>=1.2.3",
