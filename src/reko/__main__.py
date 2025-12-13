@@ -65,6 +65,11 @@ def parse_args() -> argparse.Namespace:
         help="Target language (ISO code) for transcript retrieval and summarization.",
     )
     parser.add_argument(
+        "--think",
+        action="store_true",
+        help="Enable 'think' mode for the Ollama-hosted language model.",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Regenerate the summary even if it already exists.",
@@ -144,6 +149,7 @@ def main() -> None:
         print_output=bool(args.print_output),
         save_output=bool(args.save_output),
         target_language=Lang(args.language),
+        think=bool(args.think),
     )
 
     summarize_video_url(args.url, config)

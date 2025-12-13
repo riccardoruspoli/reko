@@ -34,6 +34,7 @@ class SummaryConfig:
     print_output: bool
     save_output: bool
     target_language: Lang
+    think: bool
 
 
 def configure_dspy(config: SummaryConfig) -> None:
@@ -52,6 +53,7 @@ def configure_dspy(config: SummaryConfig) -> None:
         max_tokens=config.max_tokens,
         api_base=config.host,
         cache=False,
+        think=config.think if config.model.startswith("ollama/") else None,
     )
     dspy.configure(lm=lm, adapter=JSONAdapter())
 

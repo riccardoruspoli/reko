@@ -217,7 +217,7 @@ def translate_text(
     max_retries: int,
     guidance: str | None = None,
 ) -> str:
-    logger.info("Translating text to %s", target_language)
+    logger.debug("Translating text to %s", target_language)
     if not text.strip():
         return text
 
