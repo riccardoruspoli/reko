@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 
 from iso639 import Lang
 
 from .app import SummaryConfig, summarize
+from .errors import RekoError
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,16 @@ def configure_logging(level: int) -> None:
     )
 
 
-def parse_args() -> argparse.Namespace:
+def _parse_language(value: str) -> Lang:
+    try:
+        return Lang(value)
+    except Exception as e:
+        raise argparse.ArgumentTypeError(
+            f"Invalid language code: {value!r} (expected an ISO 639 code like 'en')."
+        ) from e
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="reko",
         description="YouTube LLM Video Summarizer",
@@ -64,8 +75,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--language",
-        type=str,
-        default="en",
+        type=_parse_language,
+        default=Lang("en"),
         help="Target language (ISO code) for transcript retrieval and summarization.",
     )
     parser.add_argument(
@@ -115,7 +126,8 @@ def parse_args() -> argparse.Namespace:
         help="Save the output to file only.",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    args.prog = parser.prog
 
     # if neither summary-only nor key-points-only is set, generate both
     args.summary = not args.key_points_only
@@ -143,29 +155,50 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     configure_logging(args.log_level)
 
-    config = SummaryConfig(
-        host=args.host,
-        model=args.model,
-        target_chunk_words=args.target_chunk_words,
-        max_tokens=args.max_tokens,
-        temperature=args.temperature,
-        force=bool(args.force),
-        include_summary=bool(args.summary),
-        include_key_points=bool(args.key_points),
-        max_retries=int(args.max_retries),
-        print_output=bool(args.print_output),
-        save_output=bool(args.save_output),
-        target_language=Lang(args.language),
-        length=str(args.length),
-        think=bool(args.think),
-    )
+    try:
+        config = SummaryConfig(
+            host=args.host,
+            model=args.model,
+            target_chunk_words=args.target_chunk_words,
+            max_tokens=args.max_tokens,
+            temperature=args.temperature,
+            force=bool(args.force),
+            include_summary=bool(args.summary),
+            include_key_points=bool(args.key_points),
+            max_retries=int(args.max_retries),
+            print_output=bool(args.print_output),
+            save_output=bool(args.save_output),
+            target_language=args.language,
+            length=str(args.length),
+            think=bool(args.think),
+        )
 
-    summarize(args.url, config)
+        summarize(args.url, config)
+        return 0
+    except RekoError as e:
+        if args.verbose:
+            logger.exception("%s", e)
+        else:
+            print(f"{args.prog}: error: {e}", file=sys.stderr)
+        return int(getattr(e, "exit_code", 1))
+    except KeyboardInterrupt:
+        if args.verbose:
+            print(f"{args.prog}: interrupted", file=sys.stderr)
+        return 130
+    except Exception:
+        if args.verbose:
+            logger.exception("Unhandled error")
+        else:
+            print(
+                f"{args.prog}: unexpected error; re-run with --verbose for traceback.",
+                file=sys.stderr,
+            )
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

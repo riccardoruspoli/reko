@@ -22,6 +22,7 @@ from .core.youtube_client import (
     is_playlist,
     save_summary,
 )
+from .errors import InputError
 
 logger = logging.getLogger(__name__)
 
@@ -113,9 +114,17 @@ def summarize_video_url(url: str, config: SummaryConfig) -> None:
     logger.debug(
         "Transcript contains %d words.", get_transcript_words_count(transcript)
     )
+
+    try:
+        resolved_transcript_lang = Lang(transcript_language).pt1
+        transcript_lang_name = Lang(transcript_language).name
+    except Exception:
+        resolved_transcript_lang = transcript_language
+        transcript_lang_name = transcript_language
+
     logger.info(
         "Transcript language resolved to %s (target %s).",
-        Lang(transcript_language).name,
+        transcript_lang_name,
         config.target_language.name,
     )
 
@@ -127,14 +136,14 @@ def summarize_video_url(url: str, config: SummaryConfig) -> None:
         include_summary=config.include_summary,
         include_key_points=config.include_key_points,
         max_retries=config.max_retries,
-        output_language=Lang(transcript_language).name,
+        output_language=transcript_lang_name,
         summary_length=config.length,
     )
 
-    if config.target_language.pt1 != transcript_language:
+    if config.target_language.pt1 != resolved_transcript_lang:
         logger.info(
             "Translating outputs from %s to %s",
-            Lang(transcript_language).name,
+            transcript_lang_name,
             config.target_language.name,
         )
         if config.include_summary:
@@ -167,10 +176,13 @@ def summarize(input_value: str, config: SummaryConfig) -> None:
     """Summarize either a single URL or a text file containing one URL per line."""
     if os.path.isfile(input_value):
         logger.info("Input is a batch file; processing multiple URLs.")
-        with open(input_value, "r", encoding="utf-8") as f:
-            urls = [line.strip() for line in f if line.strip()]
+        try:
+            with open(input_value, "r", encoding="utf-8") as f:
+                urls = [line.strip() for line in f if line.strip()]
+        except OSError as e:
+            raise InputError(f"Failed to read batch file: {input_value}") from e
         if not urls:
-            raise ValueError(f"No URLs found in batch file: {input_value}")
+            raise InputError(f"No URLs found in batch file: {input_value}")
         for url in urls:
             summarize_video_url(url, config)
         return

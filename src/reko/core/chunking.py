@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Sequence
 
+from ..errors import ProcessingError
+
 logger = logging.getLogger(__name__)
 
 
@@ -76,7 +78,7 @@ def chunk_transcript(
     # extract the segments that make up the transcript, as YouTube returns them
     segments = get_transcript_segments(serialized_transcript)
     if not segments:
-        raise RuntimeError("No valid transcript segments found.")
+        raise ProcessingError("No valid transcript segments found.")
 
     chunks: list[TranscriptChunk] = []
     current_text_parts: list[str] = []

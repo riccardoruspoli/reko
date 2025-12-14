@@ -3,6 +3,7 @@ from typing import Any, Sequence
 
 from tqdm import tqdm
 
+from ..errors import ProcessingError
 from .chunking import build_chunk_context, chunk_transcript, format_mapped_chunks
 from .modules import (
     AggregateSummarizer,
@@ -41,7 +42,7 @@ def summarize_chunks(
     )
 
     if not chunks:
-        raise RuntimeError("No transcript chunks available for summarization.")
+        raise ProcessingError("No transcript chunks available for summarization.")
 
     summarizer = ChunkSummarizer()
     total_chunks = len(chunks)
@@ -75,7 +76,7 @@ def summarize_chunks(
             summary = None
 
         if summary is None:
-            raise RuntimeError(
+            raise ProcessingError(
                 f"Chunk {chunk.index} summary failed validation after {max_retries} attempts."
             )
 
@@ -99,7 +100,7 @@ def aggregate_chunk_results(
     summary_length: str,
 ) -> str:
     if not mapped_results:
-        raise RuntimeError(
+        raise ProcessingError(
             "Aggregation failed because no chunk summaries were provided."
         )
 
@@ -145,7 +146,7 @@ def aggregate_chunk_results(
             min_summary_words,
         )
 
-    raise RuntimeError(
+    raise ProcessingError(
         f"Aggregate summary failed validation after {max_retries + 1} attempts."
     )
 
@@ -158,11 +159,11 @@ def generate_key_points(
     summary_length: str,
 ) -> list[str]:
     if not mapped_results and not final_summary:
-        raise RuntimeError(
+        raise ProcessingError(
             "Cannot generate key points without mapped chunks or summary."
         )
     if not final_summary.strip():
-        raise RuntimeError("Cannot generate key points from an empty summary.")
+        raise ProcessingError("Cannot generate key points from an empty summary.")
 
     generator = KeyPointsGenerator()
     formatted_chunks = format_mapped_chunks(mapped_results) if mapped_results else ""
@@ -192,7 +193,7 @@ def generate_key_points(
             max_retries + 1,
         )
 
-    raise RuntimeError(
+    raise ProcessingError(
         f"Key point generation failed to produce output after {max_retries} attempts."
     )
 
@@ -258,7 +259,7 @@ def translate_text(
             max_retries + 1,
         )
 
-    raise RuntimeError(
+    raise ProcessingError(
         f"Translation failed to produce output after {max_retries + 1} attempts."
     )
 
