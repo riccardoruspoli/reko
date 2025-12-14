@@ -15,7 +15,13 @@ from .core.summarizer import (
     translate_text,
 )
 from .core.text_utils import build_markdown
-from .core.youtube_client import get_transcription, get_video_data, save_summary
+from .core.youtube_client import (
+    get_playlist_videos,
+    get_transcription,
+    get_video_data,
+    is_playlist,
+    save_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +171,13 @@ def summarize(input_value: str, config: SummaryConfig) -> None:
             urls = [line.strip() for line in f if line.strip()]
         if not urls:
             raise ValueError(f"No URLs found in batch file: {input_value}")
+        for url in urls:
+            summarize_video_url(url, config)
+        return
+
+    if is_playlist(input_value):
+        logger.info("Input is a playlist; processing all videos in the playlist.")
+        urls = get_playlist_videos(input_value)
         for url in urls:
             summarize_video_url(url, config)
         return

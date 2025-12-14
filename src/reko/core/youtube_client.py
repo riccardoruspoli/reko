@@ -1,11 +1,29 @@
 import logging
 import os
 
-from pytubefix import YouTube
+from pytubefix import Playlist, YouTube
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import JSONFormatter
 
 logger = logging.getLogger(__name__)
+
+
+def is_playlist(url: str) -> bool:
+    try:
+        Playlist(url)
+        return True
+    except Exception:
+        logger.exception("Error checking if URL (%s) is a playlist.", url)
+        exit(1)
+
+
+def get_playlist_videos(url: str) -> list[tuple[str, str]]:
+    try:
+        playlist = Playlist(url)
+        return [video.watch_url for video in playlist.videos]
+    except Exception:
+        logger.exception("Error fetching videos from playlist %s", url)
+        exit(1)
 
 
 def get_video_data(url: str) -> tuple[str, str]:
