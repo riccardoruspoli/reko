@@ -1,25 +1,12 @@
-"""Utilities to split raw YouTube transcripts into timestamped chunks."""
-
 import json
 import logging
 import re
-from dataclasses import dataclass
 from typing import Any, Sequence
 
-from ..errors import ProcessingError
+from .errors import ProcessingError
+from .models import TranscriptChunk
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TranscriptChunk:
-    """Represents a contiguous transcript span with timing and word count."""
-
-    index: int
-    text: str
-    start: float
-    end: float
-    word_count: int
 
 
 def get_transcript_segments(serialized_transcript: str) -> list[dict[str, Any]]:

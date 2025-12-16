@@ -1,12 +1,11 @@
 import logging
-import os
 from urllib.parse import parse_qs, urlparse
 
 from pytubefix import Playlist, YouTube
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import JSONFormatter
 
-from ..errors import OutputError, TranscriptError, YouTubeError
+from .errors import TranscriptError, YouTubeError
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +57,3 @@ def get_transcription(video_id: str, target_language: str) -> tuple[str, str]:
         raise TranscriptError(
             f"Failed to fetch transcript for video {video_id} (tried: {', '.join(language_priority)})."
         ) from e
-
-
-def save_summary(id: str, summary: str) -> None:
-    try:
-        os.makedirs("summary", exist_ok=True)
-        with open(f"summary/{id}.md", "w", encoding="utf-8") as f:
-            f.write(summary)
-    except OSError as e:
-        raise OutputError(f"Failed to write summary file for video {id}.") from e
-    else:
-        logger.info("Saved summary as %s.md", id)

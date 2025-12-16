@@ -3,8 +3,8 @@ from typing import Any, Sequence
 
 from tqdm import tqdm
 
-from ..errors import ProcessingError
 from .chunking import build_chunk_context, chunk_transcript, format_mapped_chunks
+from .errors import ProcessingError
 from .modules import (
     AggregateSummarizer,
     ChunkSummarizer,

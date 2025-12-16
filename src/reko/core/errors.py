@@ -2,8 +2,6 @@ from __future__ import annotations
 
 
 class RekoError(Exception):
-    """Base exception for user-facing CLI failures."""
-
     exit_code = 1
 
     def __init__(self, message: str, *, exit_code: int | None = None) -> None:
