@@ -35,75 +35,86 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="YouTube LLM Video Summarizer",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
-        "url",
-        type=str,
-        help="YouTube video URL or a text file path (one URL per line).",
+
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Summarize command
+    summarize_parser = subparsers.add_parser(
+        "summarize",
+        help="Summarize a YouTube video or playlist, or a file containing URLs.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
+    summarize_parser.set_defaults(func=_handle_summarize)
+
+    summarize_parser.add_argument(
+        "target",
+        type=str,
+        help="YouTube video URL, playlist URL, or a text file path (one URL per line).",
+    )
+    summarize_parser.add_argument(
         "model",
         type=str,
         help="Language model name to use, in the llmlite format (e.g., 'openai/gpt-5-nano' or 'ollama/llama3.2:3b').",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--host",
         type=str,
         help="Language model server host URL. If Ollama is used for language model serving, and the serving host:port is different from the default, this must be provided.",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--target-chunk-words",
         type=int,
         default=800,
         help="Target words per chunk; chunks flush at segment boundaries, so this is a soft limit",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--max-tokens",
         type=int,
         default=16384,
         help="The maximum number of tokens to generate per response.",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--temperature",
         type=float,
         default=1.0,
         help="Temperature for the language model generation.",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--max-retries",
         type=int,
         default=3,
         help="Maximum attempts per LLM call after the first failed attempt before failing. Must be greater than or equal to 0.",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--language",
         type=_parse_language,
         default="en",
         help="Target language (ISO code) for transcript retrieval and summarization.",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--length",
         type=str,
         choices=("short", "medium", "long"),
         default="medium",
         help="Desired summary length and key points count.",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--think",
         action="store_true",
         help="Enable 'think' mode for the Ollama-hosted language model.",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--force",
         action="store_true",
         help="Regenerate the summary even if it already exists.",
     )
-    parser.add_argument(
+    summarize_parser.add_argument(
         "--verbose",
         action="store_true",
         help="Show detailed progress logs.",
     )
 
-    output_mode = parser.add_mutually_exclusive_group()
+    output_mode = summarize_parser.add_mutually_exclusive_group()
     output_mode.add_argument(
         "--summary-only",
         action="store_true",
@@ -115,7 +126,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Generate the key points section only.",
     )
 
-    output_destination = parser.add_mutually_exclusive_group()
+    output_destination = summarize_parser.add_mutually_exclusive_group()
     output_destination.add_argument(
         "--print-only",
         action="store_true",
@@ -148,12 +159,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if args.max_retries < 0:
         parser.error("--max-retries must be greater than or equal to 0.")
 
-    if args.verbose:
-        args.log_level = logging.DEBUG
-    else:
-        args.log_level = logging.INFO
+    args.log_level = logging.DEBUG if args.verbose else logging.INFO
 
     return args
+
+
+def _build_config(args: argparse.Namespace) -> SummaryConfig:
+    return SummaryConfig(
+        host=args.host,
+        model=args.model,
+        target_chunk_words=args.target_chunk_words,
+        max_tokens=args.max_tokens,
+        temperature=args.temperature,
+        force=bool(args.force),
+        include_summary=bool(args.summary),
+        include_key_points=bool(args.key_points),
+        max_retries=int(args.max_retries),
+        print_output=bool(args.print_output),
+        save_output=bool(args.save_output),
+        target_language=args.language,
+        length=str(args.length),
+        think=bool(args.think),
+    )
+
+
+def _handle_summarize(args: argparse.Namespace) -> None:
+    config = _build_config(args)
+    summarize(args.target, config)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -161,24 +193,7 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging(args.log_level)
 
     try:
-        config = SummaryConfig(
-            host=args.host,
-            model=args.model,
-            target_chunk_words=args.target_chunk_words,
-            max_tokens=args.max_tokens,
-            temperature=args.temperature,
-            force=bool(args.force),
-            include_summary=bool(args.summary),
-            include_key_points=bool(args.key_points),
-            max_retries=int(args.max_retries),
-            print_output=bool(args.print_output),
-            save_output=bool(args.save_output),
-            target_language=args.language,
-            length=str(args.length),
-            think=bool(args.think),
-        )
-
-        summarize(args.url, config)
+        args.func(args)
         return 0
     except RekoError as e:
         if args.verbose:
