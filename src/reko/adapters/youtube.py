@@ -5,7 +5,7 @@ from pytubefix import Playlist, YouTube
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import JSONFormatter
 
-from .errors import TranscriptError, YouTubeError
+from ..core.errors import TranscriptError, YouTubeError
 
 logger = logging.getLogger(__name__)
 

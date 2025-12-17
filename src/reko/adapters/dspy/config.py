@@ -3,7 +3,7 @@ import logging
 import dspy
 from dspy import JSONAdapter
 
-from ..core.models import SummaryConfig
+from ...core.models import SummaryConfig
 
 logger = logging.getLogger(__name__)
 

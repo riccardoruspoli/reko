@@ -1,59 +1,12 @@
-import json
 import logging
 import re
-from typing import Any, Sequence
+from typing import Any
 
 from .errors import ProcessingError
 from .models import TranscriptChunk
+from .transcript import get_transcript_segments
 
 logger = logging.getLogger(__name__)
-
-
-def get_transcript_segments(serialized_transcript: str) -> list[dict[str, Any]]:
-    """Load a serialized transcript into a list of segment dicts.
-
-    Returns only entries that look like transcript segments with a `text` field.
-    """
-    try:
-        data = json.loads(serialized_transcript)
-    except json.JSONDecodeError:
-        return []
-
-    if isinstance(data, list):
-        return [
-            segment
-            for segment in data
-            if isinstance(segment, dict) and segment.get("text")
-        ]
-
-    return []
-
-
-def get_transcript_words_count(serialized_transcript: str) -> int:
-    """Count the total number of words in the transcript segments."""
-    segments = get_transcript_segments(serialized_transcript)
-    total_words = 0
-    for segment in segments:
-        text = segment.get("text", "").strip()
-        total_words += len(text.split())
-    return total_words
-
-
-def prepare_transcript_text(serialized_transcript: str) -> str:
-    """Return a whitespace-normalized transcript string."""
-    segments = get_transcript_segments(serialized_transcript)
-    parts = [segment.get("text", "").strip() for segment in segments]
-    joined = " ".join(filter(None, parts))
-    return re.sub(r"\s+", " ", joined).strip()
-
-
-def format_timestamp(seconds: float) -> str:
-    """Format seconds as MM:SS."""
-    if seconds <= 0:
-        return "00:00"
-    minutes = int(seconds // 60)
-    secs = int(seconds % 60)
-    return f"{minutes:02d}:{secs:02d}"
 
 
 def chunk_transcript(
@@ -151,37 +104,3 @@ def _process_segment(
     chunk_end = end if chunk_end is None else max(chunk_end, end)
 
     return current_text_parts, current_words, chunk_start, chunk_end
-
-
-def build_chunk_context(
-    chunk: TranscriptChunk, total_chunks: int, language: str
-) -> str:
-    """Describe a chunk for prompting (position, timestamps, word count)."""
-    start_ts = format_timestamp(chunk.start)
-    end_ts = format_timestamp(chunk.end)
-    context = (
-        f"Chunk {chunk.index + 1} of {total_chunks}. "
-        f"Coverage {start_ts} to {end_ts} with {chunk.word_count} words. "
-        "Summarize faithfully and avoid duplication with other chunks."
-    )
-    if language:
-        context += f" Write in {language}."
-    return context
-
-
-def format_mapped_chunks(mapped: Sequence[dict[str, Any]]) -> str:
-    """Format mapped chunk summaries into a reduce-ready string prompt."""
-    lines: list[str] = [
-        "You are given chunk-level summaries. Merge them sequentially, improving only the transitions.",
-        "Do not drop facts or shorten the content. Preserve the substance of each summary.",
-        "",
-    ]
-    for entry in mapped:
-        idx = entry.get("index", 0) + 1
-        start = format_timestamp(float(entry.get("start", 0.0)))
-        end = format_timestamp(float(entry.get("end", 0.0)))
-        words = entry.get("word_count", 0)
-        lines.append(f"[Chunk {idx}] {start}-{end} ({words} words)")
-        lines.append(entry.get("summary", "").strip())
-        lines.append("---")
-    return "\n".join(lines).strip()

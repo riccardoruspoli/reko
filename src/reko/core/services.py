@@ -3,45 +3,22 @@ from __future__ import annotations
 import logging
 import os
 
-from iso639 import Lang
-
-from ..adapters.dspy import configure_dspy
-from ..adapters.storage import save_summary
-from .chunking import get_transcript_words_count
-from .errors import InputError
-from .models import SummaryConfig
-from .summarizer import generate_summary_outputs, translate_key_points, translate_text
-from .text_utils import build_markdown
-from .youtube_client import (
+from ..adapters.dspy.config import configure_dspy
+from ..adapters.storage import is_summary_complete, save_summary
+from ..adapters.youtube import (
     get_playlist_videos,
     get_transcription,
     get_video_data,
     is_playlist,
 )
+from .errors import InputError
+from .models import SummaryConfig
+from .summarizer import generate_summary_outputs
+from .text_utils import build_markdown
+from .transcript import get_transcript_words_count, resolve_language
+from .translation import translate_key_points, translate_text
 
 logger = logging.getLogger(__name__)
-
-
-def _summary_has_section(section: str, content: str) -> bool:
-    """Check if the summary content has a specific section."""
-    return f"## {section}" in content
-
-
-def _exist_summary(summary_path: str) -> bool:
-    """Check if the summary file exists."""
-    return os.path.exists(summary_path)
-
-
-def _is_summary_complete(summary_path: str, config: SummaryConfig) -> bool:
-    """Check if the existing summary file contains the requested sections."""
-    with open(summary_path, "r", encoding="utf-8") as f:
-        existing = f.read()
-
-    return (
-        not config.include_summary or _summary_has_section("Summary", existing)
-    ) and (
-        not config.include_key_points or _summary_has_section("Key Points", existing)
-    )
 
 
 def _summarize_video_url(url: str, config: SummaryConfig) -> None:
@@ -51,18 +28,17 @@ def _summarize_video_url(url: str, config: SummaryConfig) -> None:
     summary_path = os.path.join("summary", f"{video_id}.md")
     logger.debug("Summary output path: %s", summary_path)
 
-    if not config.force and _exist_summary(summary_path):
-        if _is_summary_complete(summary_path, config):
-            logger.info(
-                "Summary with requested sections already exists. Use --force to regenerate."
-            )
-            with open(summary_path, "r", encoding="utf-8") as f:
-                existing = f.read()
-            if config.print_output:
-                print(existing)
-            return
+    if is_summary_complete(summary_path, config):
+        logger.info(
+            "Summary with requested sections already exists. Use --force to regenerate."
+        )
+        with open(summary_path, "r", encoding="utf-8") as f:
+            existing = f.read()
+        if config.print_output:
+            print(existing)
+        return
 
-        logger.debug("Existing summary missing requested sections; regenerating.")
+    logger.debug("Existing summary missing requested sections; regenerating.")
 
     transcript, transcript_language = get_transcription(
         video_id, config.target_language.pt1
@@ -71,16 +47,13 @@ def _summarize_video_url(url: str, config: SummaryConfig) -> None:
         "Transcript contains %d words.", get_transcript_words_count(transcript)
     )
 
-    try:
-        resolved_transcript_lang = Lang(transcript_language).pt1
-        transcript_lang_name = Lang(transcript_language).name
-    except Exception:
-        resolved_transcript_lang = transcript_language
-        transcript_lang_name = transcript_language
+    transcript_language_code, transcript_language_name = resolve_language(
+        transcript_language
+    )
 
     logger.info(
         "Transcript language resolved to %s (target %s).",
-        transcript_lang_name,
+        transcript_language_name,
         config.target_language.name,
     )
 
@@ -92,14 +65,14 @@ def _summarize_video_url(url: str, config: SummaryConfig) -> None:
         include_summary=config.include_summary,
         include_key_points=config.include_key_points,
         max_retries=config.max_retries,
-        output_language=transcript_lang_name,
+        output_language=transcript_language_name,
         summary_length=config.length,
     )
 
-    if config.target_language.pt1 != resolved_transcript_lang:
+    if config.target_language.pt1 != transcript_language_code:
         logger.info(
             "Translating outputs from %s to %s",
-            transcript_lang_name,
+            transcript_language_name,
             config.target_language.name,
         )
         if config.include_summary:

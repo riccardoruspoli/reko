@@ -3,38 +3,33 @@ from typing import Any, Sequence
 
 from tqdm import tqdm
 
-from .chunking import build_chunk_context, chunk_transcript, format_mapped_chunks
-from .errors import ProcessingError
-from .modules import (
+from ..adapters.dspy.modules import (
     AggregateSummarizer,
     ChunkSummarizer,
     KeyPointsGenerator,
-    Translator,
+)
+from .chunking import chunk_transcript
+from .errors import ProcessingError
+from .prompt import (
+    LENGTH_PROFILES,
+    build_chunk_context,
+    build_key_points_guidance,
+    build_reduce_context,
+    format_mapped_chunks,
 )
 from .text_utils import is_valid_tldr, normalize_key_points, normalize_sequence
-
-LENGTH_PROFILES: dict[str, dict[str, object]] = {
-    "short": {
-        "length_guidance": "Make this concise: keep only the most important facts and outcomes.",
-        "bullet_ranges": (1, 3),
-        "min_words_ratio": 0.2,
-    },
-    "medium": {
-        "length_guidance": "Balance concision and coverage: include key details without being exhaustive.",
-        "bullet_ranges": (3, 5),
-        "min_words_ratio": 0.4,
-    },
-    "long": {
-        "length_guidance": "Be detailed and thorough: preserve most concrete details from the chunk summaries.",
-        "bullet_ranges": (5, 7),
-        "min_words_ratio": 0.6,
-    },
-}
 
 logger = logging.getLogger(__name__)
 
 
-def summarize_chunks(
+def _get_length_profile(summary_length: str) -> dict[str, object]:
+    profile = LENGTH_PROFILES.get(summary_length)
+    if not profile:
+        raise ProcessingError(f"Unknown summary length profile: {summary_length}")
+    return profile
+
+
+def _summarize_chunks(
     serialized_transcript: str, target_chunk_words: int, max_retries: int, language: str
 ) -> list[dict[str, Any]]:
     chunks = chunk_transcript(
@@ -93,7 +88,7 @@ def summarize_chunks(
     return mapped
 
 
-def aggregate_chunk_results(
+def _aggregate_chunk_results(
     mapped_results: Sequence[dict[str, Any]],
     max_retries: int,
     language: str,
@@ -107,23 +102,19 @@ def aggregate_chunk_results(
     logger.info("Starting reduce step for %d chunks.", len(mapped_results))
     aggregator = AggregateSummarizer()
     chunk_count = len(mapped_results)
+    length_profile = _get_length_profile(summary_length)
     source_words = sum(
         len(str(entry.get("summary", "")).split()) for entry in mapped_results
     )
-    min_summary_words = max(
-        40,
-        source_words * LENGTH_PROFILES.get(summary_length).get("min_words_ratio"),
-    )
+    min_words_ratio = float(length_profile.get("min_words_ratio", 0.0))
+    min_summary_words = int(max(40, source_words * min_words_ratio))
 
-    reduce_context = (
-        f"The transcript was processed in {chunk_count} chunks."
-        " Merge these chunk summaries into a coherent, polished narrative in chronological order. "
-        f"{LENGTH_PROFILES.get(summary_length).get('length_guidance')}"
-        f" The summary should be at least {min_summary_words} words long."
-        " You may lightly rewrite opening/closing clauses to create smooth transitions between chunks."
+    reduce_context = build_reduce_context(
+        chunk_count=chunk_count,
+        length_guidance=str(length_profile.get("length_guidance", "")),
+        min_summary_words=min_summary_words,
+        language=language,
     )
-    if language:
-        reduce_context += f" Respond in {language}."
 
     formatted_chunks = format_mapped_chunks(mapped_results)
 
@@ -151,7 +142,7 @@ def aggregate_chunk_results(
     )
 
 
-def generate_key_points(
+def _generate_key_points(
     mapped_results: Sequence[dict[str, Any]],
     final_summary: str,
     max_retries: int,
@@ -168,14 +159,14 @@ def generate_key_points(
     generator = KeyPointsGenerator()
     formatted_chunks = format_mapped_chunks(mapped_results) if mapped_results else ""
 
-    min_bullets, max_bullets = LENGTH_PROFILES.get(summary_length).get("bullet_ranges")
-    guidance = (
-        f"Create between {min_bullets} and {max_bullets} bullet-style key points in chronological order."
-        " Each bullet must be a single, concrete sentence that preserves names, numbers, and outcomes."
-        " Cover the full scope of the mapped chunks without adding new information."
+    min_bullets, max_bullets = _get_length_profile(summary_length).get(
+        "bullet_ranges", (3, 5)
     )
-    if language:
-        guidance += f" Respond in {language}."
+    guidance = build_key_points_guidance(
+        min_bullets=int(min_bullets),
+        max_bullets=int(max_bullets),
+        language=language,
+    )
 
     for attempt in range(1 + max_retries):
         prediction = generator(
@@ -198,6 +189,7 @@ def generate_key_points(
     )
 
 
+# TODO: new SummaryOutput type?
 def generate_summary_outputs(
     serialized_transcript: str,
     target_chunk_words: int,
@@ -207,13 +199,13 @@ def generate_summary_outputs(
     output_language: str,
     summary_length: str,
 ) -> tuple[str, list[str]]:
-    mapped_results = summarize_chunks(
+    mapped_results = _summarize_chunks(
         serialized_transcript=serialized_transcript,
         target_chunk_words=target_chunk_words,
         max_retries=max_retries,
         language=output_language,
     )
-    final_summary = aggregate_chunk_results(
+    final_summary = _aggregate_chunk_results(
         mapped_results=mapped_results,
         max_retries=max_retries,
         language=output_language,
@@ -221,7 +213,7 @@ def generate_summary_outputs(
     )
     key_points: list[str] = []
     if include_key_points:
-        key_points = generate_key_points(
+        key_points = _generate_key_points(
             mapped_results=mapped_results,
             final_summary=final_summary,
             max_retries=max_retries,
@@ -229,54 +221,3 @@ def generate_summary_outputs(
             summary_length=summary_length,
         )
     return final_summary if include_summary else "", key_points
-
-
-def translate_text(
-    text: str,
-    target_language: str,
-    max_retries: int,
-    guidance: str | None = None,
-) -> str:
-    logger.debug("Translating text to %s", target_language)
-    if not text.strip():
-        return text
-
-    translator = Translator()
-    guidance = guidance or "Translate while preserving meaning and formatting."
-
-    for attempt in range(1 + max_retries):
-        prediction = translator(
-            source_text=text,
-            target_language=target_language,
-            guidance=guidance,
-        )
-        translated = getattr(prediction, "translated_text", "").strip()
-        if translated:
-            return translated
-        logger.warning(
-            "Translation returned empty output (attempt %d/%d).",
-            attempt + 1,
-            max_retries + 1,
-        )
-
-    raise ProcessingError(
-        f"Translation failed to produce output after {max_retries + 1} attempts."
-    )
-
-
-def translate_key_points(
-    points: list[str],
-    target_language: str,
-    max_retries: int,
-) -> list[str]:
-    if not points:
-        return points
-
-    source = "\n".join(f"- {point}" for point in points)
-    translated = translate_text(
-        source,
-        target_language=target_language,
-        max_retries=max_retries,
-        guidance="Translate each bullet, keep the same number of bullets and bullet structure.",
-    )
-    return normalize_key_points(translated)

@@ -2,6 +2,7 @@ import logging
 import os
 
 from ..core.errors import OutputError
+from ..core.models import SummaryConfig
 
 logger = logging.getLogger(__name__)
 
@@ -15,3 +16,26 @@ def save_summary(id: str, summary: str) -> None:
         raise OutputError(f"Failed to write summary file for video {id}.") from e
     else:
         logger.info("Saved summary as %s.md", id)
+
+
+def _summary_has_section(section: str, content: str) -> bool:
+    """Check if the summary content has a specific section."""
+    return f"## {section}" in content
+
+
+def is_summary_complete(summary_path: str, config: SummaryConfig) -> bool:
+    """Check if the summary file contains the requested sections. If the file doesn't exist, or is missing the requested sections, return False."""
+    if not os.path.exists(summary_path):
+        return False
+
+    with open(summary_path, "r", encoding="utf-8") as f:
+        existing = f.read()
+
+    return (
+        (not config.include_summary or _summary_has_section("Summary", existing))
+        and (
+            not config.include_key_points
+            or _summary_has_section("Key Points", existing)
+        )
+        and not config.force
+    )
