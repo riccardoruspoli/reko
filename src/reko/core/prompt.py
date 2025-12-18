@@ -1,7 +1,7 @@
 import logging
-from typing import Any, Sequence
+from typing import Sequence
 
-from .models import TranscriptChunk
+from .models import SummaryChunk, TranscriptChunk
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def build_chunk_context(
     return context
 
 
-def format_mapped_chunks(mapped: Sequence[dict[str, Any]]) -> str:
+def format_mapped_chunks(mapped: Sequence[SummaryChunk]) -> str:
     """Format mapped chunk summaries into a reduce-ready string prompt."""
     lines: list[str] = [
         "You are given chunk-level summaries. Merge them sequentially, improving only the transitions.",
@@ -63,12 +63,12 @@ def format_mapped_chunks(mapped: Sequence[dict[str, Any]]) -> str:
         "",
     ]
     for entry in mapped:
-        idx = entry.get("index", 0) + 1
-        start = _format_timestamp(float(entry.get("start", 0.0)))
-        end = _format_timestamp(float(entry.get("end", 0.0)))
-        words = entry.get("word_count", 0)
+        idx = entry.index + 1
+        start = _format_timestamp(entry.start)
+        end = _format_timestamp(entry.end)
+        words = entry.word_count
         lines.append(f"[Chunk {idx}] {start}-{end} ({words} words)")
-        lines.append(entry.get("summary", "").strip())
+        lines.append(entry.summary.strip())
         lines.append("---")
     return "\n".join(lines).strip()
 

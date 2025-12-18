@@ -1,14 +1,16 @@
 import re
-from typing import Iterable
+from typing import Sequence
+
+from .models import SummaryDocument
 
 
-def normalize_sequence(candidate: Iterable[str] | str | None) -> list[str]:
+def normalize_sequence(candidate: Sequence[str] | str | None) -> list[str]:
     if candidate is None:
         return []
     if isinstance(candidate, str):
-        items = [candidate]
+        items = (candidate,)
     else:
-        items = list(candidate)
+        items = candidate
 
     values: list[str] = []
     for item in items:
@@ -28,7 +30,7 @@ def is_valid_tldr(tl_dr: str, min_words: int = 8) -> bool:
     return len(words) >= min_words
 
 
-def normalize_key_points(candidate: Iterable[str] | str | None) -> list[str]:
+def normalize_key_points(candidate: Sequence[str] | str | None) -> list[str]:
     """Normalize a key points response (string or sequence) into a clean list."""
     raw_items = normalize_sequence(candidate)
     key_points: list[str] = []
@@ -44,17 +46,11 @@ def normalize_key_points(candidate: Iterable[str] | str | None) -> list[str]:
 
 
 def build_markdown(
-    title: str, tl_dr: str | None = None, key_points: Iterable[str] | None = None
+    title: str, tl_dr: str | None = None, key_points: Sequence[str] | None = None
 ) -> str:
-    lines = [f"# {title.strip()}"]
-
-    if tl_dr:
-        lines.extend(["", "## Summary", "", tl_dr.strip()])
-
     points = [str(point).strip() for point in key_points or [] if str(point).strip()]
-    if points:
-        lines.extend(["", "## Key Points", ""])
-        for point in points:
-            lines.append(f"- {point}")
-
-    return "\n".join(lines).strip()
+    return SummaryDocument(
+        title=title,
+        summary=tl_dr.strip() if tl_dr and tl_dr.strip() else None,
+        key_points=points or None,
+    ).to_markdown()

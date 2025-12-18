@@ -1,23 +1,19 @@
 import logging
 import re
-from typing import Any
 
 from .errors import ProcessingError
-from .models import TranscriptChunk
-from .transcript import get_transcript_segments
+from .models import Transcript, TranscriptChunk, TranscriptSegment
 
 logger = logging.getLogger(__name__)
 
 
 def chunk_transcript(
-    serialized_transcript: str,
+    transcript: Transcript,
     target_chunk_words: int,
 ) -> list[TranscriptChunk]:
     """Split into chunks aiming for `target_chunk_words` words; segments are kept whole, so chunks may exceed the target if a single segment is long."""
 
-    # extract the segments that make up the transcript, as YouTube returns them
-    segments = get_transcript_segments(serialized_transcript)
-    if not segments:
+    if not transcript.segments:
         raise ProcessingError("No valid transcript segments found.")
 
     chunks: list[TranscriptChunk] = []
@@ -27,7 +23,7 @@ def chunk_transcript(
     chunk_end: float | None = None
 
     # segments are split into chunks according to the maximum number of words per chunk
-    for segment in segments:
+    for segment in transcript.segments:
         current_text_parts, current_words, chunk_start, chunk_end = _process_segment(
             segment=segment,
             target_chunk_words=target_chunk_words,
@@ -55,7 +51,7 @@ def chunk_transcript(
 
 
 def _process_segment(
-    segment: dict[str, Any],
+    segment: TranscriptSegment,
     target_chunk_words: int,
     chunks: list[TranscriptChunk],
     current_text_parts: list[str],
@@ -64,13 +60,12 @@ def _process_segment(
     chunk_end: float | None,
 ) -> tuple[list[str], int, float | None, float | None]:
     """Accumulate a single segment into chunks, flushing when word target is hit."""
-    text = segment.get("text", "").strip()
+    text = segment.text.strip()
     if not text:
         return current_text_parts, current_words, chunk_start, chunk_end
 
-    start = float(segment.get("start", chunk_end or 0.0))
-    duration = float(segment.get("duration", 0.0))
-    end = start + duration
+    start = float(segment.start)
+    end = float(segment.end)
     word_count = len(text.split())
 
     if chunk_start is None:

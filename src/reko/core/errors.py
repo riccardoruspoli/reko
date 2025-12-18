@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-
 class RekoError(Exception):
     exit_code = 1
 

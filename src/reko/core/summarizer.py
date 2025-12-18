@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Sequence
+from typing import Sequence
 
 from tqdm import tqdm
 
@@ -10,6 +10,7 @@ from ..adapters.dspy.modules import (
 )
 from .chunking import chunk_transcript
 from .errors import ProcessingError
+from .models import SummaryChunk, SummaryOutput, Transcript
 from .prompt import (
     LENGTH_PROFILES,
     build_chunk_context,
@@ -30,18 +31,16 @@ def _get_length_profile(summary_length: str) -> dict[str, object]:
 
 
 def _summarize_chunks(
-    serialized_transcript: str, target_chunk_words: int, max_retries: int, language: str
-) -> list[dict[str, Any]]:
-    chunks = chunk_transcript(
-        serialized_transcript, target_chunk_words=target_chunk_words
-    )
+    transcript: Transcript, target_chunk_words: int, max_retries: int, language: str
+) -> list[SummaryChunk]:
+    chunks = chunk_transcript(transcript, target_chunk_words=target_chunk_words)
 
     if not chunks:
         raise ProcessingError("No transcript chunks available for summarization.")
 
     summarizer = ChunkSummarizer()
     total_chunks = len(chunks)
-    mapped: list[dict[str, Any]] = []
+    mapped: list[SummaryChunk] = []
 
     for chunk in tqdm(chunks, desc="Summarizing chunks", unit="chunk"):
         context = build_chunk_context(chunk, total_chunks, language=language)
@@ -76,20 +75,20 @@ def _summarize_chunks(
             )
 
         mapped.append(
-            {
-                "index": chunk.index,
-                "start": chunk.start,
-                "end": chunk.end,
-                "word_count": chunk.word_count,
-                "summary": summary,
-            }
+            SummaryChunk(
+                index=chunk.index,
+                start=chunk.start,
+                end=chunk.end,
+                word_count=chunk.word_count,
+                summary=summary,
+            )
         )
 
     return mapped
 
 
 def _aggregate_chunk_results(
-    mapped_results: Sequence[dict[str, Any]],
+    mapped_results: Sequence[SummaryChunk],
     max_retries: int,
     language: str,
     summary_length: str,
@@ -103,9 +102,7 @@ def _aggregate_chunk_results(
     aggregator = AggregateSummarizer()
     chunk_count = len(mapped_results)
     length_profile = _get_length_profile(summary_length)
-    source_words = sum(
-        len(str(entry.get("summary", "")).split()) for entry in mapped_results
-    )
+    source_words = sum(len(entry.summary.split()) for entry in mapped_results)
     min_words_ratio = float(length_profile.get("min_words_ratio", 0.0))
     min_summary_words = int(max(40, source_words * min_words_ratio))
 
@@ -143,7 +140,7 @@ def _aggregate_chunk_results(
 
 
 def _generate_key_points(
-    mapped_results: Sequence[dict[str, Any]],
+    mapped_results: Sequence[SummaryChunk],
     final_summary: str,
     max_retries: int,
     language: str,
@@ -189,35 +186,38 @@ def _generate_key_points(
     )
 
 
-# TODO: new SummaryOutput type?
 def generate_summary_outputs(
-    serialized_transcript: str,
+    transcript: Transcript,
     target_chunk_words: int,
     include_summary: bool,
     include_key_points: bool,
     max_retries: int,
-    output_language: str,
     summary_length: str,
-) -> tuple[str, list[str]]:
+) -> SummaryOutput:
+    language = transcript.language.name
     mapped_results = _summarize_chunks(
-        serialized_transcript=serialized_transcript,
+        transcript=transcript,
         target_chunk_words=target_chunk_words,
         max_retries=max_retries,
-        language=output_language,
+        language=language,
     )
     final_summary = _aggregate_chunk_results(
         mapped_results=mapped_results,
         max_retries=max_retries,
-        language=output_language,
+        language=language,
         summary_length=summary_length,
     )
-    key_points: list[str] = []
+    key_points: list[str] | None = None
     if include_key_points:
         key_points = _generate_key_points(
             mapped_results=mapped_results,
             final_summary=final_summary,
             max_retries=max_retries,
-            language=output_language,
+            language=language,
             summary_length=summary_length,
         )
-    return final_summary if include_summary else "", key_points
+
+    return SummaryOutput(
+        summary=final_summary if include_summary else None,
+        key_points=key_points if include_key_points else None,
+    )

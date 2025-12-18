@@ -2,7 +2,7 @@ import logging
 import os
 
 from ..core.errors import OutputError
-from ..core.models import SummaryConfig
+from ..core.models import SummaryConfig, SummaryDocument
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +18,6 @@ def save_summary(id: str, summary: str) -> None:
         logger.info("Saved summary as %s.md", id)
 
 
-def _summary_has_section(section: str, content: str) -> bool:
-    """Check if the summary content has a specific section."""
-    return f"## {section}" in content
-
-
 def is_summary_complete(summary_path: str, config: SummaryConfig) -> bool:
     """Check if the summary file contains the requested sections. If the file doesn't exist, or is missing the requested sections, return False."""
     if not os.path.exists(summary_path):
@@ -31,11 +26,8 @@ def is_summary_complete(summary_path: str, config: SummaryConfig) -> bool:
     with open(summary_path, "r", encoding="utf-8") as f:
         existing = f.read()
 
+    document = SummaryDocument.from_markdown(existing)
+
     return (
-        (not config.include_summary or _summary_has_section("Summary", existing))
-        and (
-            not config.include_key_points
-            or _summary_has_section("Key Points", existing)
-        )
-        and not config.force
-    )
+        not config.include_summary or (document.summary and document.summary.strip())
+    ) and (not config.include_key_points or document.key_points)

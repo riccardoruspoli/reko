@@ -1,11 +1,13 @@
 import logging
 from urllib.parse import parse_qs, urlparse
 
+from iso639 import Lang
 from pytubefix import Playlist, YouTube
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api.formatters import JSONFormatter
 
 from ..core.errors import TranscriptError, YouTubeError
+from ..core.models import Transcript, TranscriptSegment
+from ..core.transcript import resolve_language
 
 logger = logging.getLogger(__name__)
 
@@ -24,36 +26,51 @@ def is_playlist(url: str) -> bool:
     return path.endswith("/playlist")
 
 
-def get_playlist_videos(url: str) -> list[str]:
+def get_playlist_videos(url: str) -> list[YouTube]:
     try:
         playlist = Playlist(url)
-        return [video.watch_url for video in playlist.videos]
+        return list(playlist.videos)
     except Exception as e:
         raise YouTubeError(f"Failed to fetch videos for playlist: {url}") from e
 
 
-def get_video_data(url: str) -> tuple[str, str]:
+def get_video(url: str) -> YouTube:
     try:
-        video = YouTube(url)
-        return video.video_id, video.title
+        return YouTube(url)
     except Exception as e:
         raise YouTubeError(f"Failed to fetch video metadata: {url}") from e
 
 
-def get_transcription(video_id: str, target_language: str) -> tuple[str, str]:
-    """Fetch a transcript in the requested language, falling back to English.
+def get_video_data(url: str) -> tuple[str, str]:
+    video = get_video(url)
+    return video.video_id, video.title
 
-    Returns the serialized transcript and the language code it was fetched in.
-    """
+
+def get_transcription(video: YouTube, target_language: Lang) -> Transcript:
+    """Fetch a transcript in the requested language, falling back to English."""
     ytt_api = YouTubeTranscriptApi()
     try:
+        if not target_language.pt1:
+            raise TranscriptError(
+                f"Target language {target_language!r} does not have an ISO 639-1 code."
+            )
         language_priority = (
-            [target_language, "en"] if target_language != "en" else ["en"]
+            [target_language.pt1, "en"] if target_language.pt1 != "en" else ["en"]
         )
-        transcript = ytt_api.fetch(video_id, languages=language_priority)
-        formatter = JSONFormatter()
-        return formatter.format_transcript(transcript), transcript.language_code
+        transcript = ytt_api.fetch(video.video_id, languages=language_priority)
+        segments = [
+            TranscriptSegment(
+                text=snippet.text.strip(),
+                start=float(snippet.start),
+                duration=float(snippet.duration),
+            )
+            for snippet in transcript
+            if snippet.text and snippet.text.strip()
+        ]
+        return Transcript(
+            segments=segments, language=resolve_language(transcript.language_code)
+        )
     except Exception as e:
         raise TranscriptError(
-            f"Failed to fetch transcript for video {video_id} (tried: {', '.join(language_priority)})."
+            f"Failed to fetch transcript for video {video.video_id} (tried: {', '.join(language_priority)})."
         ) from e
