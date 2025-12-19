@@ -29,7 +29,7 @@ def _summarize_video(video: YouTube, config: SummaryConfig) -> None:
         logger.info(
             "Summary with requested sections already exists. Use --force to regenerate."
         )
-        with open(summary_path, "r", encoding="utf-8") as f:
+        with open(summary_path, encoding="utf-8") as f:
             existing = f.read()
         if config.print_output:
             print(existing)
@@ -95,7 +95,7 @@ def summarize(input_value: str, config: SummaryConfig) -> None:
     if os.path.isfile(input_value):
         logger.info("Input is a batch file; processing multiple URLs.")
         try:
-            with open(input_value, "r", encoding="utf-8") as f:
+            with open(input_value, encoding="utf-8") as f:
                 urls = [line.strip() for line in f if line.strip()]
         except OSError as e:
             raise InputError(f"Failed to read batch file: {input_value}") from e

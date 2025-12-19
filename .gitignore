@@ -11,3 +11,5 @@ wheels/
 
 summary/
 benchmark.py
+tox.ini
+.tox/

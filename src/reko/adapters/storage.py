@@ -24,7 +24,7 @@ def is_summary_complete(summary_path: str, config: SummaryConfig) -> bool:
     if not os.path.exists(summary_path):
         return False
 
-    with open(summary_path, "r", encoding="utf-8") as f:
+    with open(summary_path, encoding="utf-8") as f:
         existing = f.read()
 
     document = SummaryDocument.from_markdown(existing)

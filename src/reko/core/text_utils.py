@@ -1,5 +1,5 @@
 import re
-from typing import Sequence
+from collections.abc import Sequence
 
 
 def normalize_sequence(candidate: Sequence[str] | str | None) -> list[str]:

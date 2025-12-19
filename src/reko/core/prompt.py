@@ -1,5 +1,6 @@
 import logging
-from typing import Sequence, TypedDict
+from collections.abc import Sequence
+from typing import TypedDict
 
 from reko.core.models import SummaryChunk, TranscriptChunk
 

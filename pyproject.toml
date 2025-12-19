@@ -1,20 +1,53 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "reko"
 version = "0.0.1"
 description = "A YouTube video summarizer using LLMs."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Riccardo Ruspoli", email = "riccardoruspoli@gmail.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.10,<3.14"
+keywords = ["youtube", "summarization", "llm", "cli", "ollama", "transcript"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Multimedia :: Video",
+  "Topic :: Text Processing :: Linguistic",
+]
 dependencies = [
     "dspy>=3.0.4",
     "iso639-lang>=2.6.3",
     "ollama>=0.6.1",
     "pytubefix>=10.3.6",
-    "setuptools>=80.9.0",
     "tqdm>=4.67.1",
     "youtube-transcript-api>=1.2.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/riccardoruspoli/reko"
+Repository = "https://github.com/riccardoruspoli/reko"
+Issues = "https://github.com/riccardoruspoli/reko/issues"
+Changelog = "https://github.com/riccardoruspoli/reko/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+  "ruff",
+  "tox>=4",
+  "build",
+  "twine",
 ]
 
 [project.scripts]
@@ -26,6 +59,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[build-system]
-requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.build_meta"
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
