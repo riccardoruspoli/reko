@@ -43,6 +43,7 @@ def get_video(url: str) -> YouTube:
 
 def get_transcription(video: YouTube, target_language: Lang) -> Transcript:
     """Fetch a transcript in the requested language, falling back to English."""
+
     ytt_api = YouTubeTranscriptApi()
     try:
         if not target_language.pt1:

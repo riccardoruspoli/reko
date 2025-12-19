@@ -20,6 +20,7 @@ def save_summary(id: str, summary: str) -> None:
 
 def is_summary_complete(summary_path: str, config: SummaryConfig) -> bool:
     """Check if the summary file contains the requested sections. If the file doesn't exist, or is missing the requested sections, return False."""
+
     if not os.path.exists(summary_path):
         return False
 

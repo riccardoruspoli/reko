@@ -11,7 +11,14 @@ def chunk_transcript(
     transcript: Transcript,
     target_chunk_words: int,
 ) -> list[TranscriptChunk]:
-    """Split into chunks aiming for `target_chunk_words` words; segments are kept whole, so chunks may exceed the target if a single segment is long."""
+    """Split a transcript into consecutive chunks, aiming for `target_chunk_words`.
+
+    Segments are kept whole and never split across chunks, so a chunk may exceed
+    the target if an individual segment is longer than `target_chunk_words`.
+
+    Chunk timestamps span from the first segment start time to the maximum end
+    time within the chunk. Whitespace is normalized when joining segment text.
+    """
 
     if not transcript.segments:
         raise ProcessingError("No valid transcript segments found.")
@@ -22,7 +29,6 @@ def chunk_transcript(
     chunk_start: float | None = None
     chunk_end: float | None = None
 
-    # segments are split into chunks according to the maximum number of words per chunk
     for segment in transcript.segments:
         current_text_parts, current_words, chunk_start, chunk_end = _process_segment(
             segment=segment,
@@ -34,7 +40,6 @@ def chunk_transcript(
             chunk_end=chunk_end,
         )
 
-    # flush any remaining text as a final chunk
     if current_text_parts:
         chunk_text = re.sub(r"\s+", " ", " ".join(current_text_parts)).strip()
         chunks.append(
@@ -60,6 +65,7 @@ def _process_segment(
     chunk_end: float | None,
 ) -> tuple[list[str], int, float | None, float | None]:
     """Accumulate a single segment into chunks, flushing when word target is hit."""
+
     text = segment.text.strip()
     if not text:
         return current_text_parts, current_words, chunk_start, chunk_end

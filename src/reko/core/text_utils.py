@@ -30,6 +30,7 @@ def is_valid_tldr(tl_dr: str, min_words: int = 8) -> bool:
 
 def normalize_key_points(candidate: Sequence[str] | str | None) -> list[str]:
     """Normalize a key points response (string or sequence) into a clean list."""
+
     raw_items = normalize_sequence(candidate)
     key_points: list[str] = []
 

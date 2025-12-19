@@ -91,6 +91,7 @@ def _summarize_video(video: YouTube, config: SummaryConfig) -> None:
 
 def summarize(input_value: str, config: SummaryConfig) -> None:
     """Summarize either a single URL or a text file containing one URL per line."""
+
     if os.path.isfile(input_value):
         logger.info("Input is a batch file; processing multiple URLs.")
         try:

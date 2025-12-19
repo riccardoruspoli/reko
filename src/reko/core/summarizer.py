@@ -13,6 +13,7 @@ from reko.core.errors import ProcessingError
 from reko.core.models import SummaryChunk, SummaryOutput, Transcript
 from reko.core.prompt import (
     LENGTH_PROFILES,
+    LengthProfile,
     build_chunk_context,
     build_key_points_guidance,
     build_reduce_context,
@@ -23,7 +24,9 @@ from reko.core.text_utils import is_valid_tldr, normalize_key_points, normalize_
 logger = logging.getLogger(__name__)
 
 
-def _get_length_profile(summary_length: str) -> dict[str, object]:
+def _get_length_profile(summary_length: str) -> LengthProfile:
+    """Return the configured length profile for the requested summary length."""
+
     profile = LENGTH_PROFILES.get(summary_length)
     if not profile:
         raise ProcessingError(f"Unknown summary length profile: {summary_length}")
@@ -33,6 +36,15 @@ def _get_length_profile(summary_length: str) -> dict[str, object]:
 def _summarize_chunks(
     transcript: Transcript, target_chunk_words: int, max_retries: int, language: str
 ) -> list[SummaryChunk]:
+    """Map step: chunk the transcript and produce a validated summary per chunk.
+
+    Retries each chunk summary up to `1 + max_retries` times until it passes a
+    simple minimum-length validation heuristic.
+
+    Raises `ProcessingError` if chunking yields no chunks or a chunk summary fails
+    validation after all retries.
+    """
+
     chunks = chunk_transcript(transcript, target_chunk_words=target_chunk_words)
 
     if not chunks:
@@ -93,6 +105,15 @@ def _aggregate_chunk_results(
     language: str,
     summary_length: str,
 ) -> str:
+    """Reduce step: merge chunk summaries into a single validated final summary.
+
+    The minimum word target is derived from the mapped chunk summaries (not the
+    original transcript text) using the chosen `summary_length` profile.
+
+    Raises `ProcessingError` if no chunk summaries are provided or the reduce
+    summary fails validation after all retries.
+    """
+
     if not mapped_results:
         raise ProcessingError(
             "Aggregation failed because no chunk summaries were provided."
@@ -103,12 +124,11 @@ def _aggregate_chunk_results(
     chunk_count = len(mapped_results)
     length_profile = _get_length_profile(summary_length)
     source_words = sum(len(entry.summary.split()) for entry in mapped_results)
-    min_words_ratio = float(length_profile.get("min_words_ratio", 0.0))
-    min_summary_words = int(max(40, source_words * min_words_ratio))
+    min_summary_words = int(max(40, source_words * length_profile["min_words_ratio"]))
 
     reduce_context = build_reduce_context(
         chunk_count=chunk_count,
-        length_guidance=str(length_profile.get("length_guidance", "")),
+        length_guidance=length_profile["length_guidance"],
         min_summary_words=min_summary_words,
         language=language,
     )
@@ -146,6 +166,16 @@ def _generate_key_points(
     language: str,
     summary_length: str,
 ) -> list[str]:
+    """Generate bullet-style key points for the transcript.
+
+    Uses the `summary_length` profile to determine an acceptable bullet count
+    range and retries up to `1 + max_retries` times until at least one bullet is
+    produced.
+
+    Raises `ProcessingError` if the input summary is empty or generation fails
+    after all retries.
+    """
+
     if not mapped_results and not final_summary:
         raise ProcessingError(
             "Cannot generate key points without mapped chunks or summary."
@@ -156,12 +186,10 @@ def _generate_key_points(
     generator = KeyPointsGenerator()
     formatted_chunks = format_mapped_chunks(mapped_results) if mapped_results else ""
 
-    min_bullets, max_bullets = _get_length_profile(summary_length).get(
-        "bullet_ranges", (3, 5)
-    )
+    min_bullets, max_bullets = _get_length_profile(summary_length)["bullet_ranges"]
     guidance = build_key_points_guidance(
-        min_bullets=int(min_bullets),
-        max_bullets=int(max_bullets),
+        min_bullets=min_bullets,
+        max_bullets=max_bullets,
         language=language,
     )
 
@@ -194,6 +222,15 @@ def generate_summary_outputs(
     max_retries: int,
     summary_length: str,
 ) -> SummaryOutput:
+    """Generate transcript summary and optional key points.
+
+    Returns a `SummaryOutput` where `summary` and/or `key_points` may be `None`
+    based on the `include_summary` / `include_key_points` flags.
+
+    Raises `ProcessingError` when chunking fails or model outputs cannot be
+    validated after retries.
+    """
+
     language = transcript.language.name
     mapped_results = _summarize_chunks(
         transcript=transcript,
