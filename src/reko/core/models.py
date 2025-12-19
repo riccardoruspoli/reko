@@ -4,7 +4,10 @@ from dataclasses import dataclass
 
 from iso639 import Lang
 
-from .markdown import summary_document_from_markdown, summary_document_to_markdown
+from reko.core.markdown import (
+    _summary_document_from_markdown,
+    _summary_document_to_markdown,
+)
 
 
 @dataclass
@@ -85,8 +88,8 @@ class SummaryDocument:
     key_points: list[str] | None = None
 
     def to_markdown(self) -> str:
-        return summary_document_to_markdown(self)
+        return _summary_document_to_markdown(self)
 
     @classmethod
     def from_markdown(cls, markdown: str) -> SummaryDocument:
-        return summary_document_from_markdown(markdown)
+        return _summary_document_from_markdown(markdown)

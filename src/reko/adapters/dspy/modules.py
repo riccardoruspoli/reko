@@ -2,7 +2,7 @@ from typing import Any
 
 import dspy
 
-from .signatures import (
+from reko.adapters.dspy.signatures import (
     AggregateSummarySignature,
     ChunkSummarySignature,
     KeyPointsSignature,

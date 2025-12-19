@@ -1,8 +1,6 @@
 import re
 from typing import Sequence
 
-from .models import SummaryDocument
-
 
 def normalize_sequence(candidate: Sequence[str] | str | None) -> list[str]:
     if candidate is None:
@@ -43,14 +41,3 @@ def normalize_key_points(candidate: Sequence[str] | str | None) -> list[str]:
                 key_points.append(cleaned)
 
     return key_points
-
-
-def build_markdown(
-    title: str, tl_dr: str | None = None, key_points: Sequence[str] | None = None
-) -> str:
-    points = [str(point).strip() for point in key_points or [] if str(point).strip()]
-    return SummaryDocument(
-        title=title,
-        summary=tl_dr.strip() if tl_dr and tl_dr.strip() else None,
-        key_points=points or None,
-    ).to_markdown()

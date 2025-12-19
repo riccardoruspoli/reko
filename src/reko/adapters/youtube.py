@@ -5,9 +5,9 @@ from iso639 import Lang
 from pytubefix import Playlist, YouTube
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from ..core.errors import TranscriptError, YouTubeError
-from ..core.models import Transcript, TranscriptSegment
-from ..core.transcript import resolve_language
+from reko.core.errors import TranscriptError, YouTubeError
+from reko.core.models import Transcript, TranscriptSegment
+from reko.core.transcript import resolve_language
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +39,6 @@ def get_video(url: str) -> YouTube:
         return YouTube(url)
     except Exception as e:
         raise YouTubeError(f"Failed to fetch video metadata: {url}") from e
-
-
-def get_video_data(url: str) -> tuple[str, str]:
-    video = get_video(url)
-    return video.video_id, video.title
 
 
 def get_transcription(video: YouTube, target_language: Lang) -> Transcript:

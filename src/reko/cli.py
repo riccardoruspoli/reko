@@ -4,14 +4,14 @@ import sys
 
 from iso639 import Lang
 
-from .core.errors import RekoError
-from .core.models import SummaryConfig
-from .core.services import summarize
+from reko.core.errors import RekoError
+from reko.core.models import SummaryConfig
+from reko.core.services import summarize
 
 logger = logging.getLogger(__name__)
 
 
-def configure_logging(level: int) -> None:
+def _configure_logging(level: int) -> None:
     logging.basicConfig(
         level=level,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -27,7 +27,7 @@ def _parse_language(value: str) -> Lang:
         ) from e
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="reko",
         description="YouTube LLM Video Summarizer",
@@ -187,8 +187,8 @@ def _handle_summarize(args: argparse.Namespace) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    configure_logging(args.log_level)
+    args = _parse_args(argv)
+    _configure_logging(args.log_level)
 
     try:
         args.func(args)

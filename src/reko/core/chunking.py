@@ -1,8 +1,8 @@
 import logging
 import re
 
-from .errors import ProcessingError
-from .models import Transcript, TranscriptChunk, TranscriptSegment
+from reko.core.errors import ProcessingError
+from reko.core.models import Transcript, TranscriptChunk, TranscriptSegment
 
 logger = logging.getLogger(__name__)
 

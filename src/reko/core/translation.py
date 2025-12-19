@@ -1,9 +1,12 @@
 import logging
 
-from ..adapters.dspy.modules import Translator
-from .errors import ProcessingError
-from .prompt import DEFAULT_TRANSLATION_GUIDANCE, KEY_POINTS_TRANSLATION_GUIDANCE
-from .text_utils import normalize_key_points
+from reko.adapters.dspy.modules import Translator
+from reko.core.errors import ProcessingError
+from reko.core.prompt import (
+    DEFAULT_TRANSLATION_GUIDANCE,
+    KEY_POINTS_TRANSLATION_GUIDANCE,
+)
+from reko.core.text_utils import normalize_key_points
 
 logger = logging.getLogger(__name__)
 

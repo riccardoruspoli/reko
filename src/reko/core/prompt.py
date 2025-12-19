@@ -1,7 +1,7 @@
 import logging
 from typing import Sequence
 
-from .models import SummaryChunk, TranscriptChunk
+from reko.core.models import SummaryChunk, TranscriptChunk
 
 logger = logging.getLogger(__name__)
 

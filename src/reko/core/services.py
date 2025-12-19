@@ -3,18 +3,18 @@ import os
 
 from pytubefix import YouTube
 
-from ..adapters.dspy.config import configure_dspy
-from ..adapters.storage import is_summary_complete, save_summary
-from ..adapters.youtube import (
+from reko.adapters.dspy.config import configure_dspy
+from reko.adapters.storage import is_summary_complete, save_summary
+from reko.adapters.youtube import (
     get_playlist_videos,
     get_transcription,
     get_video,
     is_playlist,
 )
-from .errors import InputError
-from .models import SummaryConfig, SummaryDocument
-from .summarizer import generate_summary_outputs
-from .translation import translate_key_points, translate_text
+from reko.core.errors import InputError
+from reko.core.models import SummaryConfig, SummaryDocument
+from reko.core.summarizer import generate_summary_outputs
+from reko.core.translation import translate_key_points, translate_text
 
 logger = logging.getLogger(__name__)
 

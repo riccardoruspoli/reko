@@ -3,22 +3,22 @@ from typing import Sequence
 
 from tqdm import tqdm
 
-from ..adapters.dspy.modules import (
+from reko.adapters.dspy.modules import (
     AggregateSummarizer,
     ChunkSummarizer,
     KeyPointsGenerator,
 )
-from .chunking import chunk_transcript
-from .errors import ProcessingError
-from .models import SummaryChunk, SummaryOutput, Transcript
-from .prompt import (
+from reko.core.chunking import chunk_transcript
+from reko.core.errors import ProcessingError
+from reko.core.models import SummaryChunk, SummaryOutput, Transcript
+from reko.core.prompt import (
     LENGTH_PROFILES,
     build_chunk_context,
     build_key_points_guidance,
     build_reduce_context,
     format_mapped_chunks,
 )
-from .text_utils import is_valid_tldr, normalize_key_points, normalize_sequence
+from reko.core.text_utils import is_valid_tldr, normalize_key_points, normalize_sequence
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 from iso639 import Lang
 
-from .errors import ProcessingError
+from reko.core.errors import ProcessingError
 
 
 def resolve_language(language_code: str) -> Lang:

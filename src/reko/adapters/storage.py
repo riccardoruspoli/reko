@@ -1,8 +1,8 @@
 import logging
 import os
 
-from ..core.errors import OutputError
-from ..core.models import SummaryConfig, SummaryDocument
+from reko.core.errors import OutputError
+from reko.core.models import SummaryConfig, SummaryDocument
 
 logger = logging.getLogger(__name__)
 
