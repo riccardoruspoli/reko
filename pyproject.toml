@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reko"
-version = "0.0.1"
+version = "0.1.0"
 description = "A YouTube video summarizer using LLMs."
 readme = "README.md"
 license = "MIT"
@@ -40,7 +40,6 @@ dependencies = [
 Homepage = "https://github.com/riccardoruspoli/reko"
 Repository = "https://github.com/riccardoruspoli/reko"
 Issues = "https://github.com/riccardoruspoli/reko/issues"
-Changelog = "https://github.com/riccardoruspoli/reko/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
