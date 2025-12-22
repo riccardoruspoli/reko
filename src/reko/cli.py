@@ -1,6 +1,5 @@
 import argparse
 import logging
-import sys
 
 from iso639 import Lang
 
@@ -197,18 +196,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.verbose:
             logger.exception("%s", e)
         else:
-            print(f"{args.prog}: error: {e}", file=sys.stderr)
+            logger.error("%s: error: %s", args.prog, e)
         return int(getattr(e, "exit_code", 1))
     except KeyboardInterrupt:
         if args.verbose:
-            print(f"{args.prog}: interrupted", file=sys.stderr)
+            logger.error("%s: interrupted", args.prog)
         return 130
     except Exception:
         if args.verbose:
             logger.exception("Unhandled error")
         else:
-            print(
-                f"{args.prog}: unexpected error; re-run with --verbose for traceback.",
-                file=sys.stderr,
+            logger.error(
+                "%s: unexpected error; re-run with --verbose for traceback.", args.prog
             )
         return 1
