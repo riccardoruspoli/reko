@@ -7,7 +7,7 @@
 _A modern, local-first CLI tool to extract transcripts from YouTube and transform them into concise summaries and key points._
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![PyPI version](https://img.shields.io/pypi/v/reko.svg)](https://pypi.org/project/reko/)
+[![PyPI version](https://img.shields.io/pypi/v/reko-yt.svg)](https://pypi.org/project/reko-yt/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 </div>
@@ -61,7 +61,7 @@ This approach allows `reko` to scale smoothly from short clips to multi-hour vid
 ### Install from PyPI
 
 ```bash
-pip install reko
+pip install reko-yt
 ```
 
 ## ⚡ Quick start
