@@ -19,11 +19,18 @@ def is_playlist(url: str) -> bool:
         return False
 
     query = parse_qs(parsed.query)
-    if query.get("list", [""])[0]:
+    path = parsed.path.rstrip("/").lower()
+
+    # If the URL is the watch endpoint, treat it as a single video even if "list" is present.
+    if path.endswith("/watch") or path == "watch":
+        return False
+
+    # Explicit playlist endpoint
+    if path.endswith("/playlist") or path == "playlist":
         return True
 
-    path = parsed.path.rstrip("/").lower()
-    return path.endswith("/playlist")
+    # Fallback: if there's a list query param and it's not a watch URL, consider it a playlist.
+    return bool(query.get("list", [""])[0])
 
 
 def get_playlist_videos(url: str) -> list[YouTube]:
