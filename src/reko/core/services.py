@@ -1,9 +1,11 @@
 import logging
 import os
+import re
+import time
 
 from pytubefix import YouTube
 
-from reko.adapters.dspy.config import configure_dspy
+from reko.adapters.dspy.config import dspy_context
 from reko.adapters.storage import is_summary_complete, save_summary
 from reko.adapters.youtube import (
     get_playlist_videos,
@@ -17,9 +19,14 @@ from reko.core.summarizer import generate_summary_outputs
 from reko.core.translation import translate_key_points, translate_text
 
 logger = logging.getLogger(__name__)
+_WORD_RE = re.compile(r"\b\w+\b", flags=re.UNICODE)
 
 
-def _summarize_video(video: YouTube, config: SummaryConfig) -> None:
+def _count_words(text: str) -> int:
+    return len(_WORD_RE.findall(text))
+
+
+def _summarize_video_to_markdown(video: YouTube, config: SummaryConfig) -> str:
     logger.info("Processing video %s", video.video_id)
 
     summary_path = os.path.join("summary", f"{video.video_id}.md")
@@ -30,10 +37,7 @@ def _summarize_video(video: YouTube, config: SummaryConfig) -> None:
             "Summary with requested sections already exists. Use --force to regenerate."
         )
         with open(summary_path, encoding="utf-8") as f:
-            existing = f.read()
-        if config.print_output:
-            print(existing)
-        return
+            return f.read()
 
     logger.debug("Existing summary missing requested sections; regenerating.")
 
@@ -46,35 +50,34 @@ def _summarize_video(video: YouTube, config: SummaryConfig) -> None:
         config.target_language.name,
     )
 
-    configure_dspy(config)
-
-    output = generate_summary_outputs(
-        transcript=transcript,
-        target_chunk_words=config.target_chunk_words,
-        include_summary=config.include_summary,
-        include_key_points=config.include_key_points,
-        max_retries=config.max_retries,
-        summary_length=config.length,
-    )
-
-    if config.target_language.pt1 != transcript.language.pt1:
-        logger.info(
-            "Translating outputs from %s to %s",
-            transcript.language.name,
-            config.target_language.name,
+    with dspy_context(config):
+        output = generate_summary_outputs(
+            transcript=transcript,
+            target_chunk_words=config.target_chunk_words,
+            include_summary=config.include_summary,
+            include_key_points=config.include_key_points,
+            max_retries=config.max_retries,
+            summary_length=config.length,
         )
-        if output.summary is not None:
-            output.summary = translate_text(
-                output.summary,
-                target_language=config.target_language.name,
-                max_retries=config.max_retries,
+
+        if config.target_language.pt1 != transcript.language.pt1:
+            logger.info(
+                "Translating outputs from %s to %s",
+                transcript.language.name,
+                config.target_language.name,
             )
-        if output.key_points is not None:
-            output.key_points = translate_key_points(
-                output.key_points,
-                target_language=config.target_language.name,
-                max_retries=config.max_retries,
-            )
+            if output.summary is not None:
+                output.summary = translate_text(
+                    output.summary,
+                    target_language=config.target_language.name,
+                    max_retries=config.max_retries,
+                )
+            if output.key_points is not None:
+                output.key_points = translate_key_points(
+                    output.key_points,
+                    target_language=config.target_language.name,
+                    max_retries=config.max_retries,
+                )
 
     markdown_summary = SummaryDocument(
         title=video.title,
@@ -83,10 +86,15 @@ def _summarize_video(video: YouTube, config: SummaryConfig) -> None:
     ).to_markdown()
 
     logger.debug("Output generated with %d characters", len(markdown_summary))
-    if config.print_output:
-        print(markdown_summary)
     if config.save_output:
         save_summary(video.video_id, markdown_summary)
+    return markdown_summary
+
+
+def _summarize_video(video: YouTube, config: SummaryConfig) -> None:
+    markdown_summary = _summarize_video_to_markdown(video, config)
+    if config.print_output:
+        print(markdown_summary)
 
 
 def summarize(input_value: str, config: SummaryConfig) -> None:
@@ -113,3 +121,63 @@ def summarize(input_value: str, config: SummaryConfig) -> None:
         return
 
     _summarize_video(get_video(input_value), config)
+
+
+def summarize_one_to_markdown(url: str, config: SummaryConfig) -> str:
+    """Summarize a single YouTube video URL and return markdown."""
+
+    if os.path.isfile(url):
+        raise InputError("Expected a URL, got a file path.")
+    if is_playlist(url):
+        raise InputError("Playlists are not supported by the web API.")
+    return _summarize_video_to_markdown(get_video(url), config)
+
+
+def summarize_one_with_stats(
+    url: str, config: SummaryConfig
+) -> tuple[str, int, int, float, str]:
+    """Summarize a single YouTube video URL and return (markdown, input_words, output_words, elapsed_seconds, video_id)."""
+
+    if os.path.isfile(url):
+        raise InputError("Expected a URL, got a file path.")
+    if is_playlist(url):
+        raise InputError("Playlists are not supported by the web API.")
+
+    video = get_video(url)
+    started_at = time.perf_counter()
+
+    transcript = get_transcription(video, config.target_language)
+    with dspy_context(config):
+        output = generate_summary_outputs(
+            transcript=transcript,
+            target_chunk_words=config.target_chunk_words,
+            include_summary=config.include_summary,
+            include_key_points=config.include_key_points,
+            max_retries=config.max_retries,
+            summary_length=config.length,
+        )
+
+        if config.target_language.pt1 != transcript.language.pt1:
+            if output.summary is not None:
+                output.summary = translate_text(
+                    output.summary,
+                    target_language=config.target_language.name,
+                    max_retries=config.max_retries,
+                )
+            if output.key_points is not None:
+                output.key_points = translate_key_points(
+                    output.key_points,
+                    target_language=config.target_language.name,
+                    max_retries=config.max_retries,
+                )
+
+    markdown_summary = SummaryDocument(
+        title=video.title,
+        summary=output.summary,
+        key_points=output.key_points,
+    ).to_markdown()
+
+    elapsed_seconds = time.perf_counter() - started_at
+    input_words = int(transcript.word_count)
+    output_words = _count_words(markdown_summary)
+    return markdown_summary, input_words, output_words, elapsed_seconds, video.video_id

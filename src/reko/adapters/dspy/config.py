@@ -8,9 +8,9 @@ from reko.core.models import SummaryConfig
 logger = logging.getLogger(__name__)
 
 
-def configure_dspy(config: SummaryConfig) -> None:
+def dspy_context(config: SummaryConfig):
     logger.debug(
-        "Configuring DSPy with model=%s host=%s max_tokens=%d temperature=%.2f",
+        "Creating DSPy context with model=%s host=%s max_tokens=%d temperature=%.2f",
         config.model,
         config.host,
         config.max_tokens,
@@ -26,4 +26,4 @@ def configure_dspy(config: SummaryConfig) -> None:
         cache=False,
         think=config.think if config.model.startswith("ollama/") else None,
     )
-    dspy.configure(lm=lm, adapter=JSONAdapter())
+    return dspy.context(lm=lm, adapter=JSONAdapter())

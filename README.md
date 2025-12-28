@@ -111,6 +111,27 @@ Use a remote Ollama instance:
 reko summarize 'https://www.youtube.com/watch?v=eMlx5fFNoYc' 'ollama/llama3.2:3b' --host 'http://YOUR_OLLAMA_HOST:11434'
 ```
 
+## 🌐 Local web UI
+
+Start a local web page that can summarize a YouTube URL and render the Markdown:
+
+```bash
+reko serve
+```
+
+Then open `http://127.0.0.1:8000` in your browser.
+
+Options:
+
+```bash
+reko serve --host 127.0.0.1 --port 8000
+reko serve --host 0.0.0.0 --port 8000  # expose on your LAN
+```
+
+Notes:
+
+- The web UI supports single video URLs (no playlists/batch files).
+
 ## 📄 License
 
 MIT. See `LICENSE`.

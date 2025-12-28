@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>reko</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link href="/static/style.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#4F46E5", "primary-hover": "#4338ca", "primary-light": "#818CF8", "background-light": "#f8fafc", "background-dark": "#0f172a", "surface-dark": "#1e293b", "surface-border": "#334155", "input-border": "#475569", "text-secondary": "#94a3b8"
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "1rem", "lg": "1.5rem", "xl": "2rem", "2xl": "2.5rem", "full": "9999px" },
+                    boxShadow: {
+                        'glow': '0 0 20px -5px rgba(79, 70, 229, 0.3)',
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+
+<body
+    class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white min-h-screen flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+    <header
+        class="flex items-center justify-between whitespace-nowrap border-b border-solid border-surface-border px-6 py-4 lg:px-10 bg-background-dark/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="flex items-center gap-4 text-white">
+            <div class="size-8 flex items-center justify-center text-primary-light">
+                <span class="material-symbols-outlined text-3xl">play_circle</span>
+            </div>
+            <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em]">reko</h2>
+        </div>
+    </header>
+    <main class="layout-container flex grow flex-col w-full max-w-[1440px] mx-auto p-4 lg:p-8 gap-6 lg:gap-8">
+        <section class="flex flex-col items-center justify-center py-8 lg:py-12 relative rounded-3xl overflow-hidden">
+            <div class="absolute inset-0 z-0 opacity-30" data-alt="Abstract digital network background pattern"
+                style="background-image: radial-gradient(circle at 50% 50%, #4F46E5 0%, transparent 60%), url('https://lh3.googleusercontent.com/aida-public/AB6AXuCfRQY7eQC5QhuZ_n0GcUOKTZVYYYnztsk83h75o2Vh-8QKW5cce3ABO52SF5LCQvJ6JpDHNACnU3f6RkMdvn84FMLgSsBfxL6bzVp2hz2_MeT7iBX4sr78zknz8XswH3ptUn_q-5u9_Yr5Kdv4lfO6F-w1cuDADEHCr_3NppG-6J8oQoCmqRrXSeZyu05fnuCyt-tnon_uytQ-h6F3cutZrnAeI_T26TAWwBtmyGq-NfFGjl4I8l9YDZ2slyCUf9KIZkICGa0MDO8'); background-size: cover, auto;">
+            </div>
+            <div class="absolute inset-0 bg-background-dark/90 z-0"></div>
+            <div class="relative z-10 w-full max-w-3xl flex flex-col gap-6 text-center px-4">
+                <div class="flex flex-col gap-2">
+                    <h1 class="text-white text-3xl md:text-5xl font-black leading-tight tracking-[-0.033em]">
+                        Summarize YouTube Videos
+                    </h1>
+                    <p class="text-text-secondary text-base md:text-lg font-normal leading-normal max-w-xl mx-auto">
+                        Paste a YouTube URL below to generate summaries using your favorite LLM.
+                    </p>
+                </div>
+                <label class="flex flex-col w-full h-14 md:h-16 relative group">
+                    <div
+                        class="flex w-full flex-1 items-stretch rounded-full h-full shadow-lg shadow-black/50 transition-transform group-focus-within:scale-[1.01]">
+                        <div
+                            class="text-text-secondary flex border border-input-border bg-surface-dark items-center justify-center pl-6 rounded-l-full border-r-0">
+                            <span class="material-symbols-outlined text-[24px]">link</span>
+                        </div>
+                        <input id="url"
+                            class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden text-white focus:outline-0 focus:ring-0 border border-input-border bg-surface-dark focus:border-primary/50 h-full placeholder:text-text-secondary/50 px-4 rounded-r-none border-r-0 border-l-0 text-base md:text-lg font-normal leading-normal transition-colors"
+                            placeholder="https://www.youtube.com/watch?v=..." value="" />
+                        <div
+                            class="flex items-center justify-center rounded-r-full border-l-0 border border-input-border bg-surface-dark pr-2">
+                            <button id="summarize" type="button"
+                                class="flex cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 md:h-12 px-6 bg-primary hover:bg-primary-hover text-white text-sm md:text-base font-bold leading-normal tracking-[0.015em] transition-all duration-200">
+                                <span class="truncate">Summarize</span>
+                            </button>
+                        </div>
+                    </div>
+                </label>
+            </div>
+        </section>
+        <div class="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start h-full">
+            <aside class="w-full lg:w-[380px] flex flex-col gap-6 shrink-0">
+                <div class="bg-surface-dark border border-surface-border rounded-2xl p-6 flex flex-col gap-6 shadow-xl">
+                    <div class="flex items-center gap-2 pb-2 border-b border-surface-border">
+                        <span class="material-symbols-outlined text-primary-light">tune</span>
+                        <h3 class="text-white text-lg font-bold">LLM Configuration</h3>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-white text-sm font-medium" for="provider">Provider</label>
+                        <div class="relative">
+                            <input id="provider"
+                                class="w-full rounded-xl bg-background-dark border border-input-border text-white h-12 px-4 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-text-secondary/50"
+                                type="text" value="ollama" placeholder="ollama, openai, anthropic, ..." />
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-white text-sm font-medium" for="model-name">Model Name</label>
+                        <div class="relative">
+                            <input id="model-name"
+                                class="w-full rounded-xl bg-background-dark border border-input-border text-white h-12 px-4 pl-10 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-text-secondary/50"
+                                type="text" value="llama3" />
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none text-[20px]">smart_toy</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-white text-sm font-medium" for="target-language">Target Language</label>
+                        <div class="relative">
+                            <input id="target-language"
+                                class="w-full rounded-xl bg-background-dark border border-input-border text-white h-12 px-4 pl-10 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-text-secondary/50"
+                                type="text" value="en" placeholder="en, it, es, ..." />
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none text-[20px]">translate</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-white text-sm font-medium" for="length">Length</label>
+                        <div class="relative">
+                            <select id="length"
+                                class="w-full appearance-none bg-none rounded-xl bg-background-dark border border-input-border text-white h-12 px-4 pr-10 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all">
+                                <option value="short">Short</option>
+                                <option selected="" value="medium">Medium</option>
+                                <option value="long">Long</option>
+                            </select>
+                            <span
+                                class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none">expand_more</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-5 pt-2">
+                        <div class="flex flex-col gap-3">
+                            <div class="flex justify-between items-center">
+                                <label class="text-white text-sm font-medium" for="temperature">Temperature</label>
+                                <span id="temperature-value"
+                                    class="text-primary-light text-xs font-mono bg-primary/10 px-2 py-0.5 rounded">1</span>
+                            </div>
+                            <input id="temperature" class="w-full" max="1" min="0" step="0.01" type="range" value="1" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="flex flex-col gap-2">
+                                <label class="text-white text-sm font-medium" for="target-chunk-words">Words /
+                                    Chunk</label>
+                                <div
+                                    class="flex items-center rounded-xl bg-background-dark border border-input-border px-3 h-10 w-full">
+                                    <span
+                                        class="material-symbols-outlined text-text-secondary text-[18px] mr-2">segment</span>
+                                    <input id="target-chunk-words"
+                                        class="bg-transparent border-none text-white w-full focus:ring-0 p-0 text-sm placeholder:text-text-secondary/50"
+                                        type="number" value="800" />
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-white text-sm font-medium" for="max-tokens">Max Tokens</label>
+                                <div
+                                    class="flex items-center rounded-xl bg-background-dark border border-input-border px-3 h-10 w-full">
+                                    <span
+                                        class="material-symbols-outlined text-text-secondary text-[18px] mr-2">data_array</span>
+                                    <input id="max-tokens"
+                                        class="bg-transparent border-none text-white w-full focus:ring-0 p-0 text-sm placeholder:text-text-secondary/50"
+                                        type="number" value="16384" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-white text-sm font-medium" for="max-retries">Max Retries</label>
+                            <div
+                                class="flex items-center rounded-xl bg-background-dark border border-input-border px-3 h-10 w-full">
+                                <span
+                                    class="material-symbols-outlined text-text-secondary text-[18px] mr-2">refresh</span>
+                                <input id="max-retries"
+                                    class="bg-transparent border-none text-white w-full focus:ring-0 p-0 text-sm"
+                                    type="number" min="0" value="3" />
+                            </div>
+                        </div>
+                        <div
+                            class="flex items-center justify-between bg-background-dark/50 p-3 rounded-xl border border-input-border/50">
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="material-symbols-outlined text-text-secondary text-[20px]">psychology</span>
+                                <label class="text-white text-sm font-medium cursor-pointer"
+                                    for="thinking-toggle">Enable Thinking</label>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input class="sr-only peer" id="thinking-toggle" type="checkbox" value="" />
+                                <div
+                                    class="w-11 h-6 bg-surface-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary">
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="h-px bg-surface-border w-full my-1"></div>
+                    <div class="flex flex-col gap-3">
+                        <label class="text-white text-sm font-medium">Generate</label>
+                        <div class="flex flex-wrap gap-2">
+                            <label class="cursor-pointer select-none">
+                                <input id="include-summary" checked="" class="peer sr-only" type="checkbox" />
+                                <div
+                                    class="px-3 py-2 rounded-lg border border-input-border bg-background-dark text-text-secondary text-sm font-medium transition-all peer-checked:bg-primary/20 peer-checked:text-primary-light peer-checked:border-primary-light flex items-center gap-2 hover:bg-surface-border">
+                                    <span class="material-symbols-outlined text-[18px]">notes</span>
+                                    Summary
+                                </div>
+                            </label>
+                            <label class="cursor-pointer select-none">
+                                <input id="include-key-points" checked="" class="peer sr-only" type="checkbox" />
+                                <div
+                                    class="px-3 py-2 rounded-lg border border-input-border bg-background-dark text-text-secondary text-sm font-medium transition-all peer-checked:bg-primary/20 peer-checked:text-primary-light peer-checked:border-primary-light flex items-center gap-2 hover:bg-surface-border">
+                                    <span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+                                    Key Points
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            <section class="flex-1 w-full min-h-[500px] flex flex-col gap-6">
+                <div
+                    class="bg-surface-dark border border-surface-border rounded-2xl flex flex-col h-full overflow-hidden shadow-xl">
+                    <div
+                        class="flex items-center justify-between px-6 py-4 border-b border-surface-border bg-background-dark/30">
+                        <div class="flex items-center gap-4">
+                            <h3 class="text-white text-lg font-bold">Results</h3>
+                            <span id="status"
+                                class="px-2 py-1 rounded text-[10px] font-bold bg-primary/20 text-primary-light uppercase tracking-wider">Ready</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="copy-markdown" type="button"
+                                class="text-text-secondary hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5"
+                                title="Copy to Clipboard">
+                                <span class="material-symbols-outlined text-[20px]">content_copy</span>
+                            </button>
+                            <button id="download-markdown" type="button"
+                                class="text-text-secondary hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5"
+                                title="Download Markdown">
+                                <span class="material-symbols-outlined text-[20px]">download</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div
+                        class="flex-1 p-6 md:p-8 overflow-y-auto bg-gradient-to-br from-surface-dark to-background-dark">
+                        <div id="preview" class="prose prose-invert max-w-none">
+                            <p class="text-text-secondary">No results yet. Paste a URL and click Summarize.</p>
+                        </div>
+                        <div
+                            class="mt-10 pt-4 border-t border-surface-border flex items-center justify-between text-xs text-text-secondary font-mono">
+                            <span>Input: <span id="stats-input-words">—</span> words</span>
+                            <span>Output: <span id="stats-output-words">—</span> words</span>
+                            <span>Time: <span id="stats-time-seconds">—</span>s</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

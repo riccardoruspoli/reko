@@ -1,8 +1,10 @@
 import argparse
 import logging
 
+import uvicorn
 from iso639 import Lang
 
+from reko.api import create_app
 from reko.core.errors import RekoError
 from reko.core.models import SummaryConfig
 from reko.core.services import summarize
@@ -135,26 +137,53 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Save the output to file only.",
     )
 
+    # Serve command
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Start a local web UI to summarize a URL.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    serve_parser.set_defaults(func=_handle_serve)
+
+    serve_parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host address for the web server.",
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for the web server.",
+    )
+    serve_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show detailed progress logs.",
+    )
+
     args = parser.parse_args(argv)
     args.prog = parser.prog
 
-    # if neither summary-only nor key-points-only is set, generate both
-    args.summary = not args.key_points_only
-    args.key_points = not args.summary_only
+    if args.command == "summarize":
+        # if neither summary-only nor key-points-only is set, generate both
+        args.summary = not args.key_points_only
+        args.key_points = not args.summary_only
 
-    # default to both printing and saving
-    if args.print_only:
-        args.print_output = True
-        args.save_output = False
-    elif args.save_only:
-        args.print_output = False
-        args.save_output = True
-    else:
-        args.print_output = True
-        args.save_output = True
+        # default to both printing and saving
+        if args.print_only:
+            args.print_output = True
+            args.save_output = False
+        elif args.save_only:
+            args.print_output = False
+            args.save_output = True
+        else:
+            args.print_output = True
+            args.save_output = True
 
-    if args.max_retries < 0:
-        parser.error("--max-retries must be greater than or equal to 0.")
+        if args.max_retries < 0:
+            parser.error("--max-retries must be greater than or equal to 0.")
 
     args.log_level = logging.DEBUG if args.verbose else logging.INFO
 
@@ -183,6 +212,17 @@ def _build_config(args: argparse.Namespace) -> SummaryConfig:
 def _handle_summarize(args: argparse.Namespace) -> None:
     config = _build_config(args)
     summarize(args.target, config)
+
+
+def _handle_serve(args: argparse.Namespace) -> None:
+    app = create_app()
+
+    uvicorn.run(
+        app,
+        host=args.host,
+        port=args.port,
+        log_level=args.log_level,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
