@@ -75,7 +75,7 @@ def create_app() -> FastAPI:
     web_dir = Path(__file__).resolve().parent / "web"
     templates = Jinja2Templates(directory=str(web_dir / "templates"))
 
-    app = FastAPI(title="reko", version="0.1.0")
+    app = FastAPI(title="reko", version="0.1.1")
 
     app.mount("/static", StaticFiles(directory=str(web_dir / "static")), name="static")
 

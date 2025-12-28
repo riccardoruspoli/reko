@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reko-yt"
-version = "0.1.0"
+version = "0.1.1"
 description = "A modern, local-first CLI tool to extract transcripts from YouTube and transform them into concise summaries and key points."
 readme = "README.md"
 license = "MIT"
