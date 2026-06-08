@@ -52,10 +52,10 @@ class KeyPointsSignature(dspy.Signature):
     guidance: str = dspy.InputField(
         desc="Instructions about bullet count, chronology, and style for the key points."
     )
-    key_points: list[str] = dspy.OutputField(
+    key_points: str = dspy.OutputField(
         desc=(
-            "Bullet-friendly key points (5-10 items) in chronological order. "
-            "Each entry should be a single, concrete sentence retaining names, numbers, and outcomes."
+            "Markdown bullet list with one key point per line in chronological order. "
+            "Each line must start with '- ' and contain a single, concrete sentence retaining names, numbers, and outcomes."
         )
     )
 

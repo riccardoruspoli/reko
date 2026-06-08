@@ -41,7 +41,8 @@ LENGTH_PROFILES: dict[str, LengthProfile] = {
 
 DEFAULT_TRANSLATION_GUIDANCE = "Translate while preserving meaning and formatting."
 KEY_POINTS_TRANSLATION_GUIDANCE = (
-    "Translate each bullet, keep the same number of bullets and bullet structure."
+    "Translate each bullet. Preserve the exact Markdown bullet-list structure: one '- ' bullet per line, "
+    "with the same number and order of bullets."
 )
 
 
@@ -114,7 +115,8 @@ def build_key_points_guidance(
     """Build instructions for producing bullet-style key points."""
 
     guidance = (
-        f"Create between {min_bullets} and {max_bullets} bullet-style key points in chronological order."
+        f"Create between {min_bullets} and {max_bullets} Markdown bullet key points in chronological order."
+        " Each key point must be on its own line and start with '- '."
         " Each bullet must be a single, concrete sentence that preserves names, numbers, and outcomes."
         " Cover the full scope of the mapped chunks without adding new information."
     )
