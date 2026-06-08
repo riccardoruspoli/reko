@@ -10,10 +10,6 @@ wheels/
 .venv
 
 summary/
-benchmark.py
 tox.ini
 .tox/
-.thailint.yaml
-benchmark/
 transcripts/
-scores.json
