@@ -83,6 +83,17 @@ reko summarize 'https://www.youtube.com/watch?v=eMlx5fFNoYc' 'ollama/llama3.2:3b
 reko summarize 'https://www.youtube.com/watch?v=eMlx5fFNoYc' 'openai/gpt-5-nano'
 ```
 
+For OpenAI GPT-5 models, `reko` uses the Responses API and maps `--max-tokens` to
+OpenAI's completion-token limit. GPT-5 reasoning models only support the default
+sampling temperature, so custom `--temperature` values are ignored for those
+models. You can tune reasoning cost/latency with:
+
+```bash
+reko summarize 'https://www.youtube.com/watch?v=eMlx5fFNoYc' \
+  'openai/gpt-5-nano' \
+  --reasoning-effort low
+```
+
 Generate key points only, in Italian, without saving to disk:
 
 ```bash

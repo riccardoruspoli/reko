@@ -26,6 +26,7 @@ class SummaryConfig:
     target_language: Lang
     length: str
     think: bool
+    reasoning_effort: str | None = None
 
 
 @dataclass

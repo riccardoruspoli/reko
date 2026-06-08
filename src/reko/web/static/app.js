@@ -12,6 +12,7 @@ const targetChunkWordsInput = document.getElementById("target-chunk-words");
 const maxTokensInput = document.getElementById("max-tokens");
 const maxRetriesInput = document.getElementById("max-retries");
 const lengthSelect = document.getElementById("length");
+const reasoningEffortSelect = document.getElementById("reasoning-effort");
 const thinkToggle = document.getElementById("thinking-toggle");
 const includeSummaryToggle = document.getElementById("include-summary");
 const includeKeyPointsToggle = document.getElementById("include-key-points");
@@ -34,14 +35,14 @@ function setStatus(text) {
 function debounce(fn, delayMs) {
   let timer = null;
   return (...args) => {
-    if (timer) window.clearTimeout(timer);
-    timer = window.setTimeout(() => fn(...args), delayMs);
+    if (timer) globalThis.clearTimeout(timer);
+    timer = globalThis.setTimeout(() => fn(...args), delayMs);
   };
 }
 
 function loadCachedSettings() {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = globalThis.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? parsed : null;
@@ -52,7 +53,7 @@ function loadCachedSettings() {
 
 function saveCachedSettings(settings) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   } catch {
     // ignore storage errors (private mode, quota, etc.)
   }
@@ -65,6 +66,7 @@ function readSettingsFromForm() {
     modelName: (modelNameInput?.value || "").trim(),
     targetLanguage: (targetLanguageInput?.value || "").trim(),
     length: lengthSelect?.value || "medium",
+    reasoningEffort: reasoningEffortSelect?.value || "",
     temperature: readNumber(temperatureInput, 1),
     targetChunkWords: readNumber(targetChunkWordsInput, 800),
     maxTokens: readNumber(maxTokensInput, 16384),
@@ -91,6 +93,9 @@ function applySettingsToForm(settings) {
   }
   if (lengthSelect && typeof settings.length === "string") {
     lengthSelect.value = settings.length;
+  }
+  if (reasoningEffortSelect && typeof settings.reasoningEffort === "string") {
+    reasoningEffortSelect.value = settings.reasoningEffort;
   }
   if (temperatureInput && settings.temperature != null) {
     temperatureInput.value = String(settings.temperature);
@@ -126,7 +131,7 @@ function flashStatus(text, ms = 1200) {
   if (!statusBadge) return;
   const previous = statusBadge.textContent;
   statusBadge.textContent = text;
-  window.setTimeout(() => {
+  globalThis.setTimeout(() => {
     statusBadge.textContent = previous;
   }, ms);
 }
@@ -147,29 +152,12 @@ function setStats({ inputWords, outputWords, elapsedSeconds }) {
 }
 
 async function copyToClipboard(text) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // fall back below
-    }
+  if (!navigator.clipboard?.writeText) {
+    return false;
   }
 
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  textarea.style.top = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-
-  try {
-    return document.execCommand("copy");
-  } finally {
-    textarea.remove();
-  }
+  await navigator.clipboard.writeText(text);
+  return true;
 }
 
 function readNumber(inputEl, fallback) {
@@ -190,6 +178,7 @@ function buildConfigPayload() {
     includeSummary: Boolean(includeSummaryToggle?.checked ?? true),
     includeKeyPoints: Boolean(includeKeyPointsToggle?.checked ?? true),
     length: lengthSelect?.value || "medium",
+    reasoningEffort: reasoningEffortSelect?.value || null,
   };
 }
 
@@ -218,7 +207,7 @@ async function summarize() {
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok || data.ok === false) {
       throw new Error(
-        data.error || data.detail || `Request failed (${resp.status})`
+        data.error || data.detail || `Request failed (${resp.status})`,
       );
     }
 
@@ -262,6 +251,7 @@ applySettingsToForm(loadCachedSettings());
   modelNameInput,
   targetLanguageInput,
   lengthSelect,
+  reasoningEffortSelect,
   temperatureInput,
   targetChunkWordsInput,
   maxTokensInput,
@@ -284,8 +274,9 @@ if (copyMarkdownButton) {
     try {
       const ok = await copyToClipboard(lastMarkdown);
       if (ok) flashStatus("Copied");
+      else flashStatus("Copy failed");
     } catch {
-      // ignore
+      flashStatus("Copy failed");
     }
   });
 }

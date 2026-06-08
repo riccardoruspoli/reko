@@ -103,6 +103,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Enable 'think' mode for the Ollama-hosted language model.",
     )
     summarize_parser.add_argument(
+        "--reasoning-effort",
+        type=str,
+        choices=("none", "minimal", "low", "medium", "high", "xhigh"),
+        default=None,
+        help="Reasoning effort for OpenAI GPT-5 models. Defaults to low for GPT-5.",
+    )
+    summarize_parser.add_argument(
         "--force",
         action="store_true",
         help="Regenerate the summary even if it already exists.",
@@ -206,6 +213,7 @@ def _build_config(args: argparse.Namespace) -> SummaryConfig:
         target_language=args.language,
         length=str(args.length),
         think=bool(args.think),
+        reasoning_effort=args.reasoning_effort,
     )
 
 
@@ -233,20 +241,12 @@ def main(argv: list[str] | None = None) -> int:
         args.func(args)
         return 0
     except RekoError as e:
-        if args.verbose:
-            logger.exception("%s", e)
-        else:
-            logger.error("%s: error: %s", args.prog, e)
+        logger.exception("%s: error: %s", args.prog, e)
         return int(getattr(e, "exit_code", 1))
     except KeyboardInterrupt:
         if args.verbose:
             logger.error("%s: interrupted", args.prog)
         return 130
-    except Exception:
-        if args.verbose:
-            logger.exception("Unhandled error")
-        else:
-            logger.error(
-                "%s: unexpected error; re-run with --verbose for traceback.", args.prog
-            )
+    except Exception as e:
+        logger.exception("%s: unexpected error: %s", args.prog, e)
         return 1

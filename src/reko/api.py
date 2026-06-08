@@ -52,6 +52,9 @@ def _build_summary_config(config: dict) -> SummaryConfig:
     max_retries = int(config["maxRetries"])
 
     think = bool(config["think"])
+    reasoning_effort = config.get("reasoningEffort")
+    if reasoning_effort is not None:
+        reasoning_effort = str(reasoning_effort).strip().lower() or None
 
     return SummaryConfig(
         host=host,
@@ -68,6 +71,7 @@ def _build_summary_config(config: dict) -> SummaryConfig:
         target_language=target_language,
         length=length,
         think=think,
+        reasoning_effort=reasoning_effort,
     )
 
 
@@ -82,8 +86,9 @@ def create_app() -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
         return templates.TemplateResponse(
+            request,
             "index.html",
-            {"request": request},
+            {},
         )
 
     @app.post("/api/summarize")
