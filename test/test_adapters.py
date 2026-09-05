@@ -58,6 +58,7 @@ def test_dspy_model_configuration_and_context_creation(monkeypatch) -> None:
         )
 
     created: dict[str, object] = {}
+
     def fake_lm(**kwargs):
         created["lm"] = kwargs
         return "lm"
@@ -85,9 +86,17 @@ def test_dspy_modules_forward_the_expected_signature_arguments(monkeypatch) -> N
     )
 
     assert modules.ChunkSummarizer()("text", "context")["chunk_text"] == "text"
-    assert modules.AggregateSummarizer()("chunks", "context")["mapped_chunks"] == "chunks"
-    assert modules.KeyPointsGenerator()("chunks", "summary", "guide")["guidance"] == "guide"
-    assert modules.Translator()("source", "Italian", "guide")["target_language"] == "Italian"
+    assert (
+        modules.AggregateSummarizer()("chunks", "context")["mapped_chunks"] == "chunks"
+    )
+    assert (
+        modules.KeyPointsGenerator()("chunks", "summary", "guide")["guidance"]
+        == "guide"
+    )
+    assert (
+        modules.Translator()("source", "Italian", "guide")["target_language"]
+        == "Italian"
+    )
 
 
 def test_youtube_url_detection_and_wrapped_provider_errors(monkeypatch) -> None:
@@ -102,26 +111,35 @@ def test_youtube_url_detection_and_wrapped_provider_errors(monkeypatch) -> None:
     assert youtube.get_video("https://example.test") == {"url": "https://example.test"}
     assert youtube.get_playlist_videos("https://example.test") == ["one", "two"]
 
-    monkeypatch.setattr(youtube, "YouTube", lambda url: (_ for _ in ()).throw(RuntimeError()))
-    monkeypatch.setattr(youtube, "Playlist", lambda url: (_ for _ in ()).throw(RuntimeError()))
+    monkeypatch.setattr(
+        youtube, "YouTube", lambda url: (_ for _ in ()).throw(RuntimeError())
+    )
+    monkeypatch.setattr(
+        youtube, "Playlist", lambda url: (_ for _ in ()).throw(RuntimeError())
+    )
     with pytest.raises(YouTubeError):
         youtube.get_video("url")
     with pytest.raises(YouTubeError):
         youtube.get_playlist_videos("url")
 
 
-def test_get_transcription_uses_cache_fetches_and_handles_provider_errors(monkeypatch) -> None:
+def test_get_transcription_uses_cache_fetches_and_handles_provider_errors(
+    monkeypatch,
+) -> None:
     cached = Transcript([TranscriptSegment("cached", 0, 1)], Lang("en"))
     cache = SimpleNamespace(load=lambda *_: cached)
     video = SimpleNamespace(video_id="abc")
     assert youtube.get_transcription(video, Lang("en"), cache=cache) is cached
 
     saved: list[Transcript] = []
-    cache = SimpleNamespace(load=lambda *_: None, save=lambda *_args: saved.append(_args[-1]))
+    cache = SimpleNamespace(
+        load=lambda *_: None, save=lambda *_args: saved.append(_args[-1])
+    )
     snippets = [
         SimpleNamespace(text=" first ", start=1, duration=2),
         SimpleNamespace(text="", start=3, duration=2),
     ]
+
     class FakeTranscript:
         language_code = "en"
 
@@ -141,7 +159,11 @@ def test_get_transcription_uses_cache_fetches_and_handles_provider_errors(monkey
     monkeypatch.setattr(
         youtube,
         "YouTubeTranscriptApi",
-        lambda: SimpleNamespace(fetch=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("no transcript"))),
+        lambda: SimpleNamespace(
+            fetch=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                RuntimeError("no transcript")
+            )
+        ),
     )
     with pytest.raises(TranscriptError, match="abc"):
         youtube.get_transcription(video, Lang("en"), refresh=True, cache=cache)

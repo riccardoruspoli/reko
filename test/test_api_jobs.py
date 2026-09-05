@@ -46,7 +46,9 @@ def test_job_api_submits_reports_and_streams_events() -> None:
         assert url == "https://example.test/video"
         assert config.model == "ollama/test"
         assert not is_cancelled()
-        report(ProgressEvent(phase="summarizing", message="Working", completed=1, total=1))
+        report(
+            ProgressEvent(phase="summarizing", message="Working", completed=1, total=1)
+        )
         return {"markdown": "# Result", "html": "<h1>Result</h1>"}
 
     app = create_app(runner)

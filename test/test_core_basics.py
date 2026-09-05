@@ -25,7 +25,9 @@ from reko.core.text_utils import is_valid_tldr, normalize_key_points, normalize_
 from reko.core.transcript import resolve_language
 
 
-def config(*, include_summary: bool = True, include_key_points: bool = True) -> SummaryConfig:
+def config(
+    *, include_summary: bool = True, include_key_points: bool = True
+) -> SummaryConfig:
     return SummaryConfig(
         host=None,
         model="ollama/test",
@@ -102,7 +104,9 @@ def test_markdown_round_trip_and_summary_storage(tmp_path, monkeypatch) -> None:
     assert SummaryDocument.from_markdown(markdown) == SummaryDocument(
         "Title", "Body", ["First", "Second"]
     )
-    assert SummaryDocument.from_markdown("# Only title") == SummaryDocument("Only title")
+    assert SummaryDocument.from_markdown("# Only title") == SummaryDocument(
+        "Only title"
+    )
 
     monkeypatch.chdir(tmp_path)
     save_summary("video", markdown)
@@ -112,7 +116,9 @@ def test_markdown_round_trip_and_summary_storage(tmp_path, monkeypatch) -> None:
 
 
 def test_storage_wraps_write_errors(monkeypatch) -> None:
-    monkeypatch.setattr("reko.adapters.storage.os.makedirs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "reko.adapters.storage.os.makedirs", lambda *args, **kwargs: None
+    )
 
     def fail_open(*args, **kwargs):
         raise OSError("disk full")
