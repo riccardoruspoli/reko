@@ -115,3 +115,42 @@ def test_summarize_dispatches_file_playlist_and_single_video(
     monkeypatch.setattr(services, "is_playlist", lambda _: True)
     services.summarize("playlist", config())
     assert calls == ["one", "two"]
+
+
+def test_markdown_service_reuses_existing_output_and_saves_new_output(
+    monkeypatch, capsys
+) -> None:
+    video = SimpleNamespace(video_id="id", title="Title")
+    monkeypatch.setattr(services, "is_summary_complete", lambda *_: True)
+
+    class ExistingFile:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return "# Existing"
+
+    monkeypatch.setattr("builtins.open", lambda *_args, **_kwargs: ExistingFile())
+    assert services._summarize_video_to_markdown(video, config()) == "# Existing"
+
+    saved = []
+    monkeypatch.setattr(services, "is_summary_complete", lambda *_: False)
+    monkeypatch.setattr(
+        services, "get_transcription", lambda *_args, **_kwargs: fake_transcript()
+    )
+    monkeypatch.setattr(services, "dspy_context", lambda _: nullcontext())
+    monkeypatch.setattr(
+        services,
+        "generate_summary_outputs",
+        lambda **_kwargs: SummaryOutput("summary", ["point"]),
+    )
+    monkeypatch.setattr(services, "save_summary", lambda *args: saved.append(args))
+    result = services._summarize_video_to_markdown(video, config(save_output=True))
+    services._summarize_video(video, config(print_output=True))
+
+    assert "## Summary" in result
+    assert saved == [("id", result)]
+    assert "## Summary" in capsys.readouterr().out
