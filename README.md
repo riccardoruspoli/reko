@@ -164,6 +164,20 @@ Check service health with:
 curl http://localhost:8000/healthz
 ```
 
+## 🧪 Development
+
+All automated checks are offline and use mock data only. Install the development dependencies and run them with `uv`:
+
+```bash
+uv sync --extra dev
+uv run ruff format --check src test
+uv run ruff check src test
+uv run python -m pytest
+uv build
+```
+
+`tox` is intentionally not used: it previously performed live YouTube and provider calls, which are unsuitable for repeatable tests.
+
 ## 📄 License
 
 MIT. See `LICENSE`.
