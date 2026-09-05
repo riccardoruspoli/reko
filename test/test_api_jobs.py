@@ -104,6 +104,46 @@ def test_job_events_reject_invalid_last_event_id() -> None:
         app.state.job_manager.shutdown()
 
 
+def test_job_events_resume_after_last_event_id() -> None:
+    def runner(
+        url: str,
+        config: SummaryConfig,
+        report: ProgressReporter,
+        is_cancelled: CancelCheck,
+    ) -> dict[str, object]:
+        report(
+            ProgressEvent(phase="summarizing", message="Working", completed=1, total=1)
+        )
+        return {"markdown": "# Result", "html": "<h1>Result</h1>"}
+
+    app = create_app(runner)
+    try:
+        with TestClient(app) as client:
+            job_id = client.post("/api/jobs", json=payload()).json()["job"]["job_id"]
+            wait_for_completed(client, job_id)
+
+            complete_stream = client.get(f"/api/jobs/{job_id}/events").text
+            event_ids = [
+                int(line.removeprefix("id: "))
+                for line in complete_stream.splitlines()
+                if line.startswith("id: ")
+            ]
+            assert len(event_ids) >= 3
+
+            resumed_stream = client.get(
+                f"/api/jobs/{job_id}/events",
+                headers={"Last-Event-ID": str(event_ids[-2])},
+            ).text
+            resumed_ids = [
+                int(line.removeprefix("id: "))
+                for line in resumed_stream.splitlines()
+                if line.startswith("id: ")
+            ]
+            assert resumed_ids == [event_ids[-1]]
+    finally:
+        app.state.job_manager.shutdown()
+
+
 def test_health_remains_available_while_a_job_runs() -> None:
     import threading
 
