@@ -1,7 +1,12 @@
 const urlInput = document.getElementById("url");
 const summarizeButton = document.getElementById("summarize");
+const cancelJobButton = document.getElementById("cancel-job");
 const statusBadge = document.getElementById("status");
 const previewEl = document.getElementById("preview");
+const progressEl = document.getElementById("job-progress");
+const progressMessageEl = document.getElementById("job-progress-message");
+const progressCountEl = document.getElementById("job-progress-count");
+const progressBarEl = document.getElementById("job-progress-bar");
 
 const providerInput = document.getElementById("provider");
 const modelNameInput = document.getElementById("model-name");
@@ -25,12 +30,148 @@ const timeSecondsEl = document.getElementById("stats-time-seconds");
 
 let lastMarkdown = "";
 let lastVideoId = "";
+let activeJobId = null;
+let eventSource = null;
+let pollingTimer = null;
 
 const STORAGE_KEY = "reko:ui:v1";
 
 function setStatus(text) {
   if (!statusBadge) return;
   statusBadge.textContent = text;
+}
+
+function showPreviewError(message) {
+  previewEl.replaceChildren();
+  const error = document.createElement("pre");
+  error.textContent = message;
+  previewEl.append(error);
+}
+
+function setJobControls(active) {
+  summarizeButton.disabled = active;
+  if (cancelJobButton) {
+    cancelJobButton.disabled = !active;
+    cancelJobButton.classList.toggle("hidden", !active);
+    cancelJobButton.classList.toggle("flex", active);
+  }
+}
+
+function resetProgress() {
+  if (progressEl) progressEl.classList.add("hidden");
+  if (progressBarEl) progressBarEl.style.width = "0%";
+  if (progressCountEl) progressCountEl.textContent = "";
+}
+
+function updateProgress(job) {
+  if (!job || !progressEl) return;
+  progressEl.classList.remove("hidden");
+  if (progressMessageEl) progressMessageEl.textContent = job.message || "Working";
+
+  const completed = Number(job.completed);
+  const total = Number(job.total);
+  const hasProgress = Number.isFinite(completed) && Number.isFinite(total) && total > 0;
+  if (progressCountEl) {
+    progressCountEl.textContent = hasProgress ? `${completed}/${total}` : job.phase || "";
+  }
+  if (progressBarEl) {
+    const percent = hasProgress ? Math.min(100, Math.max(0, (completed / total) * 100)) : 0;
+    progressBarEl.style.width = `${percent}%`;
+  }
+
+  setStatus(job.state === "succeeded" ? "Done" : job.state || "Running");
+  setStats({
+    inputWords: job.metrics?.input_words,
+    outputWords: job.metrics?.output_words,
+    elapsedSeconds: job.metrics?.elapsed_seconds ?? job.elapsed_seconds,
+  });
+}
+
+function stopJobUpdates() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+  if (pollingTimer) {
+    globalThis.clearInterval(pollingTimer);
+    pollingTimer = null;
+  }
+}
+
+function finishJob(job) {
+  stopJobUpdates();
+  activeJobId = null;
+  setJobControls(false);
+  updateProgress(job);
+
+  if (job.state === "succeeded") {
+    previewEl.innerHTML = job.result?.html || "";
+    lastMarkdown = job.result?.markdown || "";
+    lastVideoId = job.result?.video_id || "";
+    return;
+  }
+  if (job.state === "cancelled") {
+    setStatus("Cancelled");
+    showPreviewError("The job was cancelled.");
+    return;
+  }
+  if (job.state === "failed") {
+    setStatus("Error");
+    showPreviewError(job.error || "The job failed.");
+  }
+}
+
+function applyJobSnapshot(job) {
+  updateProgress(job);
+  if (["succeeded", "failed", "cancelled"].includes(job.state)) {
+    finishJob(job);
+  }
+}
+
+async function pollJob() {
+  if (!activeJobId) return;
+  try {
+    const response = await fetch(`/api/jobs/${activeJobId}`);
+    const data = await response.json();
+    if (!response.ok || data.ok === false) throw new Error(data.error || "Job lookup failed");
+    applyJobSnapshot(data.job);
+  } catch (error) {
+    stopJobUpdates();
+    activeJobId = null;
+    setJobControls(false);
+    setStatus("Error");
+    showPreviewError(error?.message || String(error));
+  }
+}
+
+function startPollingFallback() {
+  if (pollingTimer || !activeJobId) return;
+  pollingTimer = globalThis.setInterval(pollJob, 1000);
+  pollJob();
+}
+
+function startJobUpdates(jobId) {
+  if (!globalThis.EventSource) {
+    startPollingFallback();
+    return;
+  }
+  eventSource = new EventSource(`/api/jobs/${jobId}/events`);
+  ["state", "progress", "terminal"].forEach((eventName) => {
+    eventSource.addEventListener(eventName, (event) => {
+      try {
+        applyJobSnapshot(JSON.parse(event.data));
+      } catch {
+        startPollingFallback();
+      }
+    });
+  });
+  eventSource.onerror = () => {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+    if (activeJobId) startPollingFallback();
+  };
 }
 
 function debounce(fn, delayMs) {
@@ -189,15 +330,16 @@ async function summarize() {
   }
 
   saveCachedSettings(readSettingsFromForm());
-  summarizeButton.disabled = true;
-  setStatus("Running");
+  setJobControls(true);
+  setStatus("Queued");
   previewEl.innerHTML = "<p>Working...</p>";
+  resetProgress();
   lastMarkdown = "";
   lastVideoId = "";
   setStats({ inputWords: null, outputWords: null, elapsedSeconds: null });
 
   try {
-    const resp = await fetch("/api/summarize", {
+    const resp = await fetch("/api/jobs", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ url, config: buildConfigPayload() }),
@@ -210,20 +352,15 @@ async function summarize() {
       );
     }
 
-    previewEl.innerHTML = data.html || "";
-    lastMarkdown = data.markdown || "";
-    lastVideoId = data.video_id || "";
-    setStatus("Done");
-    setStats({
-      inputWords: data.stats?.input_words,
-      outputWords: data.stats?.output_words,
-      elapsedSeconds: data.stats?.elapsed_seconds,
-    });
+    activeJobId = data.job?.job_id;
+    if (!activeJobId) throw new Error("The server did not return a job ID.");
+    applyJobSnapshot(data.job);
+    if (activeJobId) startJobUpdates(activeJobId);
   } catch (err) {
     setStatus("Error");
-    previewEl.innerHTML = `<pre>${err?.message || String(err)}</pre>`;
-  } finally {
-    summarizeButton.disabled = false;
+    showPreviewError(err?.message || String(err));
+    activeJobId = null;
+    setJobControls(false);
   }
 }
 
@@ -231,6 +368,24 @@ summarizeButton.addEventListener("click", summarize);
 urlInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") summarize();
 });
+
+if (cancelJobButton) {
+  cancelJobButton.addEventListener("click", async () => {
+    if (!activeJobId) return;
+    cancelJobButton.disabled = true;
+    setStatus("Cancelling");
+    try {
+      const response = await fetch(`/api/jobs/${activeJobId}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok || data.ok === false) throw new Error(data.error || "Cancellation failed");
+      applyJobSnapshot(data.job);
+    } catch (error) {
+      cancelJobButton.disabled = false;
+      setStatus("Error");
+      showPreviewError(error?.message || String(error));
+    }
+  });
+}
 
 const persistSettingsDebounced = debounce(() => {
   saveCachedSettings(readSettingsFromForm());

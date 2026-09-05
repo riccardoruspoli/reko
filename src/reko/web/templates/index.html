@@ -126,6 +126,14 @@
                 >
                   <span class="truncate">Summarize</span>
                 </button>
+                <button
+                  id="cancel-job"
+                  type="button"
+                  disabled
+                  class="hidden ml-2 cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 md:h-12 px-4 border border-input-border text-text-secondary hover:text-white hover:border-primary-light text-sm font-bold transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </label>
@@ -417,6 +425,19 @@
             <div
               class="flex-1 p-6 md:p-8 overflow-y-auto bg-gradient-to-br from-surface-dark to-background-dark"
             >
+              <div
+                id="job-progress"
+                class="hidden mb-6 rounded-xl border border-surface-border bg-background-dark/50 p-4"
+                aria-live="polite"
+              >
+                <div class="flex items-center justify-between gap-4 text-sm">
+                  <span id="job-progress-message" class="text-white">Queued</span>
+                  <span id="job-progress-count" class="text-text-secondary font-mono"></span>
+                </div>
+                <div class="mt-3 h-2 overflow-hidden rounded-full bg-surface-border">
+                  <div id="job-progress-bar" class="h-full w-0 bg-primary transition-[width] duration-300"></div>
+                </div>
+              </div>
               <div id="preview" class="prose prose-invert max-w-none">
                 <p class="text-text-secondary">
                   No results yet. Paste a URL and click Summarize.
