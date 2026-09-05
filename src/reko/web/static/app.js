@@ -34,6 +34,7 @@ let lastVideoId = "";
 let activeJobId = null;
 let eventSource = null;
 let pollingTimer = null;
+let sseRetryTimer = null;
 
 const STORAGE_KEY = "reko:ui:v1";
 
@@ -107,6 +108,10 @@ function stopJobUpdates() {
     globalThis.clearInterval(pollingTimer);
     pollingTimer = null;
   }
+  if (sseRetryTimer) {
+    globalThis.clearTimeout(sseRetryTimer);
+    sseRetryTimer = null;
+  }
 }
 
 function finishJob(job) {
@@ -162,12 +167,26 @@ function startPollingFallback() {
   pollJob();
 }
 
+function retrySseConnection() {
+  if (sseRetryTimer || !activeJobId || eventSource) return;
+  sseRetryTimer = globalThis.setTimeout(() => {
+    sseRetryTimer = null;
+    if (activeJobId && !eventSource) startJobUpdates(activeJobId);
+  }, 5000);
+}
+
 function startJobUpdates(jobId) {
   if (!globalThis.EventSource) {
     startPollingFallback();
     return;
   }
   eventSource = new EventSource(`/api/jobs/${jobId}/events`);
+  eventSource.onopen = () => {
+    if (pollingTimer) {
+      globalThis.clearInterval(pollingTimer);
+      pollingTimer = null;
+    }
+  };
   ["state", "progress", "terminal"].forEach((eventName) => {
     eventSource.addEventListener(eventName, (event) => {
       try {
@@ -182,7 +201,10 @@ function startJobUpdates(jobId) {
       eventSource.close();
       eventSource = null;
     }
-    if (activeJobId) startPollingFallback();
+    if (activeJobId) {
+      startPollingFallback();
+      retrySseConnection();
+    }
   };
 }
 
