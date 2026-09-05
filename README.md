@@ -147,6 +147,23 @@ Notes:
 
 - The web UI supports single video URLs (no playlists/batch files).
 
+## 🐳 Container deployment
+
+The container runs only reko. Configure Ollama or another LLM provider separately in the web UI; Ollama is intentionally not part of the Compose stack.
+
+```bash
+cp .env.example .env
+docker compose up -d
+```
+
+Open `http://YOUR_SERVER:8000`. Transcript cache files are persisted in `./data`. For an Ollama service running on the Docker host, use `http://host.docker.internal:11434` in the UI; for a different host, use an address reachable from the container.
+
+Check service health with:
+
+```bash
+curl http://localhost:8000/healthz
+```
+
 ## 📄 License
 
 MIT. See `LICENSE`.

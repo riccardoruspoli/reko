@@ -85,6 +85,10 @@ def create_app() -> FastAPI:
 
     app.mount("/static", StaticFiles(directory=str(web_dir / "static")), name="static")
 
+    @app.get("/healthz")
+    def healthcheck() -> dict[str, bool]:
+        return {"ok": True}
+
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
         return templates.TemplateResponse(

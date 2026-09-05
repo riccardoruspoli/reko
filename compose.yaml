@@ -1,0 +1,14 @@
+services:
+  reko:
+    image: ghcr.io/riccardoruspoli/reko:${REKO_TAG:-latest}
+    build:
+      context: .
+    ports:
+      - "${REKO_PORT:-8000}:8000"
+    environment:
+      REKO_DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
