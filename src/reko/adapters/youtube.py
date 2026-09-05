@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from urllib.parse import parse_qs, urlparse
 
 from iso639 import Lang
@@ -55,6 +56,7 @@ def get_transcription(
     *,
     refresh: bool = False,
     cache: TranscriptCache | None = None,
+    cache_status: Callable[[bool], None] | None = None,
 ) -> Transcript:
     """Fetch a transcript in the requested language, falling back to English."""
 
@@ -62,12 +64,17 @@ def get_transcription(
     if not refresh:
         cached_transcript = cache.load(video.video_id, target_language)
         if cached_transcript is not None:
+            if cache_status:
+                cache_status(True)
             logger.info(
                 "Using cached %s transcript for video %s.",
                 cached_transcript.language.name,
                 video.video_id,
             )
             return cached_transcript
+
+    if cache_status:
+        cache_status(False)
 
     ytt_api = YouTubeTranscriptApi()
     try:

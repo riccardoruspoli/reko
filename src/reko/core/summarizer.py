@@ -56,6 +56,11 @@ def _summarize_chunks(
     validation after all retries.
     """
 
+    if progress:
+        progress(
+            ProgressEvent(phase="chunking", message="Splitting transcript into chunks")
+        )
+    _ensure_not_cancelled(cancel_check)
     chunks = chunk_transcript(transcript, target_chunk_words=target_chunk_words)
 
     if not chunks:
@@ -64,6 +69,17 @@ def _summarize_chunks(
     summarizer = ChunkSummarizer()
     total_chunks = len(chunks)
     mapped: list[SummaryChunk] = []
+    retry_count = 0
+    if progress:
+        progress(
+            ProgressEvent(
+                phase="chunking",
+                message=f"Split transcript into {total_chunks} chunks",
+                completed=total_chunks,
+                total=total_chunks,
+                metrics={"chunk_count": total_chunks},
+            )
+        )
 
     for chunk in tqdm(chunks, desc="Summarizing chunks", unit="chunk"):
         _ensure_not_cancelled(cancel_check)
@@ -101,6 +117,7 @@ def _summarize_chunks(
                 attempt + 1,
                 max_retries + 1,
             )
+            retry_count += 1
             summary = None
 
         if summary is None:
@@ -124,6 +141,7 @@ def _summarize_chunks(
                     message=f"Summarized chunk {chunk.index + 1} of {total_chunks}",
                     completed=chunk.index + 1,
                     total=total_chunks,
+                    metrics={"retry_count": retry_count},
                 )
             )
 

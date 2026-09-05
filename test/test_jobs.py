@@ -73,6 +73,7 @@ def test_job_records_progress_result_and_sse_events() -> None:
 
         assert completed["phase"] == "completed"
         assert completed["metrics"] == {"chunks": 2}
+        assert "queued" in completed["phase_durations_seconds"]
         assert completed["result"] == {"markdown": "# Done"}
         events = "".join(manager.iter_events(job["job_id"]))
         assert "event: state" in events

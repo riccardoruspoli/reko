@@ -129,7 +129,14 @@ def test_get_transcription_uses_cache_fetches_and_handles_provider_errors(
     cached = Transcript([TranscriptSegment("cached", 0, 1)], Lang("en"))
     cache = SimpleNamespace(load=lambda *_: cached)
     video = SimpleNamespace(video_id="abc")
-    assert youtube.get_transcription(video, Lang("en"), cache=cache) is cached
+    cache_status: list[bool] = []
+    assert (
+        youtube.get_transcription(
+            video, Lang("en"), cache=cache, cache_status=cache_status.append
+        )
+        is cached
+    )
+    assert cache_status == [True]
 
     saved: list[Transcript] = []
     cache = SimpleNamespace(
@@ -151,10 +158,13 @@ def test_get_transcription_uses_cache_fetches_and_handles_provider_errors(
         "YouTubeTranscriptApi",
         lambda: SimpleNamespace(fetch=lambda *_args, **_kwargs: FakeTranscript()),
     )
-    result = youtube.get_transcription(video, Lang("it"), cache=cache)
+    result = youtube.get_transcription(
+        video, Lang("it"), cache=cache, cache_status=cache_status.append
+    )
     assert result.segments[0].text == "first"
     assert result.language.pt1 == "en"
     assert saved == [result]
+    assert cache_status[-1] is False
 
     monkeypatch.setattr(
         youtube,

@@ -157,7 +157,15 @@ def summarize_one_with_stats(
     _report(progress, "transcript", "Loading transcript")
     _ensure_not_cancelled(cancel_check)
     transcript = get_transcription(
-        video, config.target_language, refresh=config.refresh_transcript
+        video,
+        config.target_language,
+        refresh=config.refresh_transcript,
+        cache_status=lambda hit: _report(
+            progress,
+            "transcript",
+            "Loaded cached transcript" if hit else "Fetching transcript",
+            metrics={"transcript_cache_hit": hit},
+        ),
     )
     _report(
         progress,

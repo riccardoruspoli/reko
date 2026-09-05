@@ -50,6 +50,8 @@ class SummaryJob:
     error: str | None = None
     cancel_requested: bool = False
     finished_at: datetime | None = None
+    phase_started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    phase_durations_seconds: dict[str, float] = field(default_factory=dict)
     events: list[JobEvent] = field(default_factory=list)
     condition: threading.Condition = field(
         default_factory=threading.Condition, repr=False
@@ -155,12 +157,14 @@ class JobManager:
     def _run(self, job: SummaryJob, url: str, config: SummaryConfig) -> None:
         with job.condition:
             if job.cancel_requested:
+                self._complete_phase(job, "cancelled")
                 job.state = JobState.CANCELLED
                 job.phase = "cancelled"
                 job.message = "Cancelled before execution"
                 job.finished_at = datetime.now(UTC)
                 self._append_event(job, "state")
                 return
+            self._complete_phase(job, "starting")
             job.state = JobState.RUNNING
             job.phase = "starting"
             job.message = "Starting job"
@@ -170,6 +174,7 @@ class JobManager:
             with job.condition:
                 if job.cancel_requested:
                     raise JobCancelledError()
+                self._complete_phase(job, event.phase)
                 job.phase = event.phase
                 job.message = event.message
                 job.completed = event.completed
@@ -187,6 +192,7 @@ class JobManager:
             self._finish_cancelled(job)
         except Exception as error:
             with job.condition:
+                self._complete_phase(job, "failed")
                 job.state = JobState.FAILED
                 job.phase = "failed"
                 job.message = "Job failed"
@@ -198,6 +204,7 @@ class JobManager:
                 if job.cancel_requested:
                     self._finish_cancelled(job)
                     return
+                self._complete_phase(job, "completed")
                 job.state = JobState.SUCCEEDED
                 job.phase = "completed"
                 job.message = "Job completed"
@@ -207,6 +214,7 @@ class JobManager:
 
     def _finish_cancelled(self, job: SummaryJob) -> None:
         with job.condition:
+            self._complete_phase(job, "cancelled")
             job.state = JobState.CANCELLED
             job.phase = "cancelled"
             job.message = "Job cancelled"
@@ -235,6 +243,7 @@ class JobManager:
             "completed": job.completed,
             "total": job.total,
             "metrics": dict(job.metrics),
+            "phase_durations_seconds": dict(job.phase_durations_seconds),
             "result": job.result,
             "error": job.error,
             "cancel_requested": job.cancel_requested,
@@ -263,3 +272,14 @@ class JobManager:
             ]
             for job_id in expired:
                 del self._jobs[job_id]
+
+    @staticmethod
+    def _complete_phase(job: SummaryJob, next_phase: str) -> None:
+        if job.phase == next_phase:
+            return
+        now = datetime.now(UTC)
+        elapsed = (now - job.phase_started_at).total_seconds()
+        job.phase_durations_seconds[job.phase] = round(
+            job.phase_durations_seconds.get(job.phase, 0) + elapsed, 3
+        )
+        job.phase_started_at = now
