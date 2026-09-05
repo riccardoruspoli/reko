@@ -178,6 +178,18 @@ uv build
 
 `tox` is intentionally not used: it previously performed live YouTube and provider calls, which are unsuitable for repeatable tests.
 
+## 🚀 Releases
+
+The release workflow runs when a `vX.Y.Z` tag is pushed. It runs the offline quality checks, builds the Python distributions, publishes to PyPI through Trusted Publishing, pushes a tagged image to GHCR, and creates GitHub release notes with git-cliff.
+
+Before the first release, configure PyPI Trusted Publishing for this repository and the `release.yml` workflow, create the protected GitHub environment named `pypi`, and set the GHCR package visibility you want. The tag version must match the version in `pyproject.toml` and `src/reko/__version__.py`.
+
+To refresh the committed changelog before creating a release, run git-cliff locally:
+
+```bash
+git cliff --tag vX.Y.Z --output CHANGELOG.md
+```
+
 ## 📄 License
 
 MIT. See `LICENSE`.
