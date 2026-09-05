@@ -65,3 +65,37 @@ def test_get_transcription_uses_cached_value_without_creating_api_client(
     transcript = get_transcription(video, Lang("en"), cache=cache)
 
     assert transcript == cached
+
+
+def test_refresh_transcript_bypasses_cache_and_replaces_it(
+    tmp_path: Path, monkeypatch
+) -> None:
+    cache = TranscriptCache(tmp_path)
+    cache.save("video-123", Lang("en"), make_transcript())
+
+    class FetchedTranscript(list):
+        language_code = "en"
+
+    class FakeYouTubeTranscriptApi:
+        def fetch(self, video_id: str, languages: list[str]) -> FetchedTranscript:
+            assert video_id == "video-123"
+            assert languages == ["en"]
+            return FetchedTranscript(
+                [
+                    type(
+                        "Snippet",
+                        (),
+                        {"text": "Fresh transcript.", "start": 0, "duration": 4},
+                    )()
+                ]
+            )
+
+    monkeypatch.setattr(
+        "reko.adapters.youtube.YouTubeTranscriptApi", FakeYouTubeTranscriptApi
+    )
+    video = type("Video", (), {"video_id": "video-123"})()
+
+    transcript = get_transcription(video, Lang("en"), refresh=True, cache=cache)
+
+    assert [segment.text for segment in transcript.segments] == ["Fresh transcript."]
+    assert cache.load("video-123", Lang("en")) == transcript
