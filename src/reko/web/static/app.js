@@ -1,6 +1,7 @@
 const urlInput = document.getElementById("url");
 const summarizeButton = document.getElementById("summarize");
 const cancelJobButton = document.getElementById("cancel-job");
+const retryJobButton = document.getElementById("retry-job");
 const statusBadge = document.getElementById("status");
 const previewEl = document.getElementById("preview");
 const progressEl = document.getElementById("job-progress");
@@ -55,6 +56,16 @@ function setJobControls(active) {
     cancelJobButton.classList.toggle("hidden", !active);
     cancelJobButton.classList.toggle("flex", active);
   }
+  if (retryJobButton) {
+    retryJobButton.classList.toggle("hidden", active);
+    retryJobButton.classList.remove("flex");
+  }
+}
+
+function setRetryVisible(visible) {
+  if (!retryJobButton) return;
+  retryJobButton.classList.toggle("hidden", !visible);
+  retryJobButton.classList.toggle("flex", visible);
 }
 
 function resetProgress() {
@@ -102,6 +113,7 @@ function finishJob(job) {
   stopJobUpdates();
   activeJobId = null;
   setJobControls(false);
+  setRetryVisible(["failed", "cancelled"].includes(job.state));
   updateProgress(job);
 
   if (job.state === "succeeded") {
@@ -331,6 +343,7 @@ async function summarize() {
 
   saveCachedSettings(readSettingsFromForm());
   setJobControls(true);
+  setRetryVisible(false);
   setStatus("Queued");
   previewEl.innerHTML = "<p>Working...</p>";
   resetProgress();
@@ -385,6 +398,10 @@ if (cancelJobButton) {
       showPreviewError(error?.message || String(error));
     }
   });
+}
+
+if (retryJobButton) {
+  retryJobButton.addEventListener("click", summarize);
 }
 
 const persistSettingsDebounced = debounce(() => {
