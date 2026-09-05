@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import runpy
 
 import pytest
 
 from reko import cli
+from reko.__version__ import __version__
 from reko.core.errors import InputError
 
 
@@ -69,3 +71,11 @@ def test_serve_starts_uvicorn_with_parsed_options(monkeypatch) -> None:
 
     assert cli.main(["serve", "--host", "0.0.0.0", "--port", "9999", "--verbose"]) == 0
     assert received == {"app": "app", "host": "0.0.0.0", "port": 9999, "log_level": 10}
+
+
+def test_module_entrypoint_and_version(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "main", lambda: 0)
+    with pytest.raises(SystemExit) as error:
+        runpy.run_module("reko.__main__", run_name="__main__")
+    assert error.value.code == 0
+    assert __version__ == "0.2.0"

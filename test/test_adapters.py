@@ -46,6 +46,12 @@ def test_dspy_model_configuration_and_context_creation(monkeypatch) -> None:
         summary_config("openai/gpt-5-turbo", reasoning_effort="medium")
     )
     assert legacy["max_tokens"] == 321
+    assert (
+        dspy_config._gpt5_lm_kwargs(
+            summary_config("openai/gpt-5-turbo", temperature=0.2)
+        )["temperature"]
+        is None
+    )
     modern = dspy_config._gpt5_lm_kwargs(summary_config("openai/gpt-5.2"))
     assert modern["max_completion_tokens"] == 321
     with pytest.raises(ValueError, match="reasoning_effort"):

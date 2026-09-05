@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from iso639 import Lang
 
+from reko.adapters import transcript_cache
 from reko.adapters.transcript_cache import TranscriptCache
 from reko.adapters.youtube import get_transcription
 from reko.core.models import Transcript, TranscriptSegment
@@ -99,3 +101,67 @@ def test_refresh_transcript_bypasses_cache_and_replaces_it(
 
     assert [segment.text for segment in transcript.segments] == ["Fresh transcript."]
     assert cache.load("video-123", Lang("en")) == transcript
+
+
+def test_cache_validates_payloads_paths_and_data_directory(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("REKO_DATA_DIR", str(tmp_path))
+    assert transcript_cache.default_data_dir() == tmp_path
+    cache = TranscriptCache(tmp_path)
+
+    with pytest.raises(ValueError, match="ISO 639-1"):
+        cache._path("video", type("Language", (), {"pt1": None})())
+    with pytest.raises(ValueError, match="not an object"):
+        cache._decode([], "video", Lang("en"))
+    with pytest.raises(ValueError, match="Unsupported cache version"):
+        cache._decode({}, "video", Lang("en"))
+    with pytest.raises(ValueError, match="video ID"):
+        cache._decode(
+            {
+                "version": 1,
+                "video_id": "other",
+                "requested_language": "en",
+                "resolved_language": "en",
+                "segments": [],
+            },
+            "video",
+            Lang("en"),
+        )
+    with pytest.raises(ValueError, match="language"):
+        cache._decode(
+            {
+                "version": 1,
+                "video_id": "video",
+                "requested_language": "it",
+                "resolved_language": "en",
+                "segments": [],
+            },
+            "video",
+            Lang("en"),
+        )
+    valid_prefix = {
+        "version": 1,
+        "video_id": "video",
+        "requested_language": "en",
+        "resolved_language": "en",
+    }
+    with pytest.raises(ValueError, match="no transcript segments"):
+        cache._decode({**valid_prefix, "segments": []}, "video", Lang("en"))
+    with pytest.raises(ValueError, match="no valid transcript segments"):
+        cache._decode(
+            {**valid_prefix, "segments": [{"text": " "}]}, "video", Lang("en")
+        )
+
+
+def test_cache_save_removes_temporary_file_when_replacement_fails(
+    monkeypatch, tmp_path: Path
+) -> None:
+    cache = TranscriptCache(tmp_path)
+    monkeypatch.setattr(
+        Path, "replace", lambda *_args: (_ for _ in ()).throw(OSError())
+    )
+
+    with pytest.raises(OSError):
+        cache.save("video", Lang("en"), make_transcript())
+    assert not list((tmp_path / "transcripts" / "video").glob("tmp*"))
