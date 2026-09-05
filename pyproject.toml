@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools~=82.0.1", "wheel~=0.47.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.12.6,<0.13"]
+build-backend = "uv_build"
 
 [project]
 name = "reko-yt"
@@ -50,14 +50,8 @@ dev = ["pytest~=9.0.2", "pytest-cov~=7.0.0", "ruff~=0.15.1"]
 [project.scripts]
 reko = "reko.__main__:main"
 
-[tool.setuptools]
-package-dir = { "" = "src" }
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-reko = ["web/templates/*.html", "web/static/*.js", "web/static/*.css"]
+[tool.uv.build-backend]
+module-name = "reko"
 
 [tool.ruff]
 target-version = "py310"
