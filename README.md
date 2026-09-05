@@ -183,7 +183,7 @@ All automated checks are offline and use mock data only. Install the development
 uv sync --group dev
 uv run ruff format --check src test
 uv run ruff check src test
-uv run python -m pytest --cov=src/reko --cov-branch --cov-report=term-missing
+uv run python -m pytest --cov=src/reko --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=90
 uv build
 ```
 

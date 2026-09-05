@@ -26,5 +26,11 @@ jobs:
       - run: uv sync --locked --group dev
       - run: uv run ruff format --check src test
       - run: uv run ruff check src test
-      - run: uv run python -m pytest --cov=src/reko --cov-branch --cov-report=term-missing
+      - run: uv run python -m pytest --cov=src/reko --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-py${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: error
       - run: uv build
