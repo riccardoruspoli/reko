@@ -54,6 +54,7 @@ def _build_summary_config(config: dict) -> SummaryConfig:
     max_retries = int(config["maxRetries"])
 
     think = bool(config["think"])
+    refresh_transcript = bool(config.get("refreshTranscript", False))
     reasoning_effort = config.get("reasoningEffort")
     if reasoning_effort is not None:
         reasoning_effort = str(reasoning_effort).strip().lower() or None
@@ -74,6 +75,7 @@ def _build_summary_config(config: dict) -> SummaryConfig:
         length=length,
         think=think,
         reasoning_effort=reasoning_effort,
+        refresh_transcript=refresh_transcript,
     )
 
 

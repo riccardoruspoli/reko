@@ -12,6 +12,9 @@ const maxRetriesInput = document.getElementById("max-retries");
 const lengthSelect = document.getElementById("length");
 const reasoningEffortSelect = document.getElementById("reasoning-effort");
 const thinkToggle = document.getElementById("thinking-toggle");
+const refreshTranscriptToggle = document.getElementById(
+  "refresh-transcript-toggle",
+);
 const includeSummaryToggle = document.getElementById("include-summary");
 const includeKeyPointsToggle = document.getElementById("include-key-points");
 const copyMarkdownButton = document.getElementById("copy-markdown");
@@ -68,6 +71,7 @@ function readSettingsFromForm() {
     temperature: readNumber(temperatureInput, 1),
     maxRetries: readNumber(maxRetriesInput, 3),
     think: Boolean(thinkToggle?.checked),
+    refreshTranscript: Boolean(refreshTranscriptToggle?.checked),
     includeSummary: Boolean(includeSummaryToggle?.checked ?? true),
     includeKeyPoints: Boolean(includeKeyPointsToggle?.checked ?? true),
   };
@@ -101,6 +105,12 @@ function applySettingsToForm(settings) {
   }
   if (thinkToggle && typeof settings.think === "boolean") {
     thinkToggle.checked = settings.think;
+  }
+  if (
+    refreshTranscriptToggle &&
+    typeof settings.refreshTranscript === "boolean"
+  ) {
+    refreshTranscriptToggle.checked = settings.refreshTranscript;
   }
   if (includeSummaryToggle && typeof settings.includeSummary === "boolean") {
     includeSummaryToggle.checked = settings.includeSummary;
@@ -163,6 +173,7 @@ function buildConfigPayload() {
     temperature: readNumber(temperatureInput, 1),
     maxRetries: readNumber(maxRetriesInput, 3),
     think: Boolean(thinkToggle?.checked),
+    refreshTranscript: Boolean(refreshTranscriptToggle?.checked),
     includeSummary: Boolean(includeSummaryToggle?.checked ?? true),
     includeKeyPoints: Boolean(includeKeyPointsToggle?.checked ?? true),
     length: lengthSelect?.value || "medium",
@@ -243,6 +254,7 @@ applySettingsToForm(loadCachedSettings());
   temperatureInput,
   maxRetriesInput,
   thinkToggle,
+  refreshTranscriptToggle,
   includeSummaryToggle,
   includeKeyPointsToggle,
 ].forEach(bindPersist);
