@@ -1,5 +1,3 @@
-"""In-process job execution, state snapshots, and SSE event streaming."""
-
 from __future__ import annotations
 
 import json
@@ -13,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
+from reko.core.errors import JobCancelledError
 from reko.core.models import SummaryConfig
 from reko.core.progress import CancelCheck, ProgressEvent, ProgressReporter
 
@@ -264,7 +263,3 @@ class JobManager:
             ]
             for job_id in expired:
                 del self._jobs[job_id]
-
-
-class JobCancelledError(Exception):
-    """Raised by a cooperative progress callback after a cancellation request."""

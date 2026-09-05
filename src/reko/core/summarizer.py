@@ -9,8 +9,9 @@ from reko.adapters.dspy.modules import (
     KeyPointsGenerator,
 )
 from reko.core.chunking import chunk_transcript
-from reko.core.errors import ProcessingError
+from reko.core.errors import JobCancelledError, ProcessingError
 from reko.core.models import SummaryChunk, SummaryOutput, Transcript
+from reko.core.progress import CancelCheck, ProgressEvent, ProgressReporter
 from reko.core.prompt import (
     LENGTH_PROFILES,
     LengthProfile,
@@ -33,8 +34,18 @@ def _get_length_profile(summary_length: str) -> LengthProfile:
     return profile
 
 
+def _ensure_not_cancelled(cancel_check: CancelCheck | None) -> None:
+    if cancel_check and cancel_check():
+        raise JobCancelledError("Job cancelled.")
+
+
 def _summarize_chunks(
-    transcript: Transcript, target_chunk_words: int, max_retries: int, language: str
+    transcript: Transcript,
+    target_chunk_words: int,
+    max_retries: int,
+    language: str,
+    progress: ProgressReporter | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> list[SummaryChunk]:
     """Map step: chunk the transcript and produce a validated summary per chunk.
 
@@ -55,6 +66,16 @@ def _summarize_chunks(
     mapped: list[SummaryChunk] = []
 
     for chunk in tqdm(chunks, desc="Summarizing chunks", unit="chunk"):
+        _ensure_not_cancelled(cancel_check)
+        if progress:
+            progress(
+                ProgressEvent(
+                    phase="summarizing",
+                    message=f"Summarizing chunk {chunk.index + 1} of {total_chunks}",
+                    completed=chunk.index,
+                    total=total_chunks,
+                )
+            )
         context = build_chunk_context(chunk, total_chunks, language=language)
 
         # 8 words minimum, or 8 words + 1 per 30 words of source
@@ -62,6 +83,7 @@ def _summarize_chunks(
 
         summary: str | None = None
         for attempt in range(1 + max_retries):
+            _ensure_not_cancelled(cancel_check)
             prediction = summarizer(
                 chunk_text=chunk.text,
                 chunk_context=context,
@@ -95,6 +117,15 @@ def _summarize_chunks(
                 summary=summary,
             )
         )
+        if progress:
+            progress(
+                ProgressEvent(
+                    phase="summarizing",
+                    message=f"Summarized chunk {chunk.index + 1} of {total_chunks}",
+                    completed=chunk.index + 1,
+                    total=total_chunks,
+                )
+            )
 
     return mapped
 
@@ -104,6 +135,8 @@ def _aggregate_chunk_results(
     max_retries: int,
     language: str,
     summary_length: str,
+    progress: ProgressReporter | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> str:
     """Reduce step: merge chunk summaries into a single validated final summary.
 
@@ -136,6 +169,16 @@ def _aggregate_chunk_results(
     formatted_chunks = format_mapped_chunks(mapped_results)
 
     for attempt in range(1 + max_retries):
+        _ensure_not_cancelled(cancel_check)
+        if progress:
+            progress(
+                ProgressEvent(
+                    phase="reducing",
+                    message="Combining chunk summaries",
+                    completed=attempt,
+                    total=max_retries + 1,
+                )
+            )
         prediction = aggregator(
             mapped_chunks=formatted_chunks,
             reduce_context=reduce_context,
@@ -144,6 +187,15 @@ def _aggregate_chunk_results(
         summary = " ".join(summary_parts).strip()
 
         if is_valid_tldr(summary, min_summary_words):
+            if progress:
+                progress(
+                    ProgressEvent(
+                        phase="reducing",
+                        message="Combined chunk summaries",
+                        completed=attempt + 1,
+                        total=max_retries + 1,
+                    )
+                )
             return summary
 
         logger.warning(
@@ -165,6 +217,8 @@ def _generate_key_points(
     max_retries: int,
     language: str,
     summary_length: str,
+    progress: ProgressReporter | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> list[str]:
     """Generate bullet-style key points for the transcript.
 
@@ -194,6 +248,16 @@ def _generate_key_points(
     )
 
     for attempt in range(1 + max_retries):
+        _ensure_not_cancelled(cancel_check)
+        if progress:
+            progress(
+                ProgressEvent(
+                    phase="key_points",
+                    message="Generating key points",
+                    completed=attempt,
+                    total=max_retries + 1,
+                )
+            )
         prediction = generator(
             mapped_chunks=formatted_chunks,
             final_summary=final_summary,
@@ -201,6 +265,15 @@ def _generate_key_points(
         )
         key_points = normalize_key_points(getattr(prediction, "key_points", []))
         if key_points:
+            if progress:
+                progress(
+                    ProgressEvent(
+                        phase="key_points",
+                        message="Generated key points",
+                        completed=attempt + 1,
+                        total=max_retries + 1,
+                    )
+                )
             return key_points
 
         logger.warning(
@@ -221,6 +294,8 @@ def generate_summary_outputs(
     include_key_points: bool,
     max_retries: int,
     summary_length: str,
+    progress: ProgressReporter | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> SummaryOutput:
     """Generate transcript summary and optional key points.
 
@@ -237,12 +312,16 @@ def generate_summary_outputs(
         target_chunk_words=target_chunk_words,
         max_retries=max_retries,
         language=language,
+        progress=progress,
+        cancel_check=cancel_check,
     )
     final_summary = _aggregate_chunk_results(
         mapped_results=mapped_results,
         max_retries=max_retries,
         language=language,
         summary_length=summary_length,
+        progress=progress,
+        cancel_check=cancel_check,
     )
     key_points: list[str] | None = None
     if include_key_points:
@@ -252,6 +331,8 @@ def generate_summary_outputs(
             max_retries=max_retries,
             language=language,
             summary_length=summary_length,
+            progress=progress,
+            cancel_check=cancel_check,
         )
 
     return SummaryOutput(

@@ -19,6 +19,10 @@ class ProcessingError(RekoError):
     pass
 
 
+class JobCancelledError(ProcessingError):
+    pass
+
+
 class ExternalServiceError(RekoError):
     pass
 

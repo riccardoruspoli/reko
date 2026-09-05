@@ -13,8 +13,9 @@ from reko.adapters.youtube import (
     get_video,
     is_playlist,
 )
-from reko.core.errors import InputError
+from reko.core.errors import InputError, JobCancelledError
 from reko.core.models import SummaryConfig, SummaryDocument
+from reko.core.progress import CancelCheck, ProgressEvent, ProgressReporter
 from reko.core.summarizer import generate_summary_outputs
 from reko.core.translation import translate_key_points, translate_text
 
@@ -136,7 +137,10 @@ def summarize_one_to_markdown(url: str, config: SummaryConfig) -> str:
 
 
 def summarize_one_with_stats(
-    url: str, config: SummaryConfig
+    url: str,
+    config: SummaryConfig,
+    progress: ProgressReporter | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> tuple[str, int, int, float, str]:
     """Summarize a single YouTube video URL and return (markdown, input_words, output_words, elapsed_seconds, video_id)."""
 
@@ -145,12 +149,23 @@ def summarize_one_with_stats(
     if is_playlist(url):
         raise InputError("Playlists are not supported by the web API.")
 
+    _report(progress, "video", "Resolving video details")
+    _ensure_not_cancelled(cancel_check)
     video = get_video(url)
     started_at = time.perf_counter()
 
+    _report(progress, "transcript", "Loading transcript")
+    _ensure_not_cancelled(cancel_check)
     transcript = get_transcription(
         video, config.target_language, refresh=config.refresh_transcript
     )
+    _report(
+        progress,
+        "transcript",
+        "Transcript loaded",
+        metrics={"input_words": transcript.word_count},
+    )
+    _ensure_not_cancelled(cancel_check)
     with dspy_context(config):
         output = generate_summary_outputs(
             transcript=transcript,
@@ -159,22 +174,32 @@ def summarize_one_with_stats(
             include_key_points=config.include_key_points,
             max_retries=config.max_retries,
             summary_length=config.length,
+            progress=progress,
+            cancel_check=cancel_check,
         )
 
         if config.target_language.pt1 != transcript.language.pt1:
+            _report(progress, "translating", "Translating output")
+            _ensure_not_cancelled(cancel_check)
             if output.summary is not None:
                 output.summary = translate_text(
                     output.summary,
                     target_language=config.target_language.name,
                     max_retries=config.max_retries,
+                    progress=progress,
+                    cancel_check=cancel_check,
                 )
             if output.key_points is not None:
                 output.key_points = translate_key_points(
                     output.key_points,
                     target_language=config.target_language.name,
                     max_retries=config.max_retries,
+                    progress=progress,
+                    cancel_check=cancel_check,
                 )
 
+    _ensure_not_cancelled(cancel_check)
+    _report(progress, "rendering", "Rendering markdown")
     markdown_summary = SummaryDocument(
         title=video.title,
         summary=output.summary,
@@ -184,4 +209,30 @@ def summarize_one_with_stats(
     elapsed_seconds = time.perf_counter() - started_at
     input_words = int(transcript.word_count)
     output_words = _count_words(markdown_summary)
+    _report(
+        progress,
+        "rendering",
+        "Output ready",
+        metrics={
+            "input_words": input_words,
+            "output_words": output_words,
+            "elapsed_seconds": round(elapsed_seconds, 3),
+        },
+    )
     return markdown_summary, input_words, output_words, elapsed_seconds, video.video_id
+
+
+def _report(
+    progress: ProgressReporter | None,
+    phase: str,
+    message: str,
+    *,
+    metrics: dict[str, int | float | str | bool] | None = None,
+) -> None:
+    if progress:
+        progress(ProgressEvent(phase=phase, message=message, metrics=metrics or {}))
+
+
+def _ensure_not_cancelled(cancel_check: CancelCheck | None) -> None:
+    if cancel_check and cancel_check():
+        raise JobCancelledError("Job cancelled.")
