@@ -57,7 +57,7 @@ Raw YouTube transcripts are cached locally by video ID and requested language. R
 
 ### Prerequisites
 
-- **Python 3.10+**
+- **Python 3.10–3.14** (tutte le versioni sono verificate in CI)
 - An LLM endpoint:
   - **Ollama** (local): install Ollama and pull the model you want to use.
   - **Hosted APIs** (for example `openai/...`): configure the required API keys in your environment. When using non-local providers, the required environment variables must be configured according to the supported provider of the model which can be found [here](https://docs.litellm.ai/docs/providers).
@@ -146,6 +146,17 @@ reko serve --host 0.0.0.0 --port 8000  # expose on your LAN
 Notes:
 
 - The web UI supports single video URLs (no playlists/batch files).
+- Jobs run asynchronously. The UI streams progress with Server-Sent Events (SSE)
+  and falls back to a one-second status poll when SSE is unavailable.
+- A job reports transcript-cache hit/miss, chunk progress, retries, input/output
+  words, elapsed time, phase timings, and terminal success/failure/cancellation.
+- Cancel is cooperative: an active LLM request is allowed to finish, but no next
+  phase is started. Failed and cancelled jobs can be retried from the UI.
+- `REKO_MAX_CONCURRENT_JOBS` controls the in-memory job limit and defaults to
+  `1`, which is appropriate for a home server or a local LLM endpoint.
+- If a reverse proxy is in front of reko, disable response buffering for
+  `/api/jobs/*/events` and preserve `text/event-stream`; otherwise the browser
+  will automatically use polling instead of live progress.
 
 ## 🐳 Container deployment
 

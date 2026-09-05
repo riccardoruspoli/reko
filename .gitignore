@@ -15,4 +15,5 @@ data/
 .pytest_cache/
 .pytest-*/
 .coverage
+coverage.xml
 .uv-cache/
