@@ -3,12 +3,15 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from datetime import timedelta
 
 import pytest
 from iso639 import Lang
 
+from reko.core.errors import JobCancelledError
 from reko.core.models import SummaryConfig
 from reko.core.progress import CancelCheck, ProgressEvent, ProgressReporter
+from reko.web import jobs
 from reko.web.jobs import JobManager, JobState
 
 
@@ -139,3 +142,52 @@ def test_job_failure_and_unknown_job_are_reported() -> None:
             manager.snapshot("missing")
     finally:
         manager.shutdown()
+
+
+def test_active_job_cancellation_retention_and_event_reconnect() -> None:
+    started = threading.Event()
+    release = threading.Event()
+
+    def runner(
+        url: str,
+        config: SummaryConfig,
+        report: ProgressReporter,
+        is_cancelled: CancelCheck,
+    ) -> dict[str, object]:
+        started.set()
+        release.wait(timeout=2)
+        if is_cancelled():
+            raise JobCancelledError("Cancelled")
+        return {"url": url}
+
+    manager = JobManager(runner, max_concurrent_jobs=1, retention=timedelta(seconds=-1))
+    try:
+        first = manager.submit("https://example.test/first", make_config())
+        assert started.wait(timeout=2)
+        assert manager.cancel(first["job_id"])["state"] == "cancelling"
+        release.set()
+        cancelled = wait_for(
+            manager, first["job_id"], lambda snapshot: snapshot["state"] == "cancelled"
+        )
+        assert cancelled["cancel_requested"] is True
+        events = list(manager.iter_events(first["job_id"], after_sequence=1))
+        assert events and events[-1].startswith("id: ")
+
+        second = manager.submit("https://example.test/second", make_config())
+        wait_for(
+            manager, second["job_id"], lambda snapshot: snapshot["state"] == "succeeded"
+        )
+        with pytest.raises(KeyError, match="Unknown job"):
+            manager.snapshot(first["job_id"])
+    finally:
+        release.set()
+        manager.shutdown()
+
+
+def test_job_concurrency_environment_defaults(monkeypatch) -> None:
+    monkeypatch.setenv("REKO_MAX_CONCURRENT_JOBS", "invalid")
+    assert jobs._max_concurrent_jobs() == 1
+    monkeypatch.setenv("REKO_MAX_CONCURRENT_JOBS", "0")
+    assert jobs._max_concurrent_jobs() == 1
+    monkeypatch.setenv("REKO_MAX_CONCURRENT_JOBS", "2")
+    assert jobs._max_concurrent_jobs() == 2

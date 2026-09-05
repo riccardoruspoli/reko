@@ -102,3 +102,32 @@ def test_job_events_reject_invalid_last_event_id() -> None:
             assert invalid.status_code == 400
     finally:
         app.state.job_manager.shutdown()
+
+
+def test_health_remains_available_while_a_job_runs() -> None:
+    import threading
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def runner(
+        url: str,
+        config: SummaryConfig,
+        report: ProgressReporter,
+        is_cancelled: CancelCheck,
+    ) -> dict[str, object]:
+        started.set()
+        release.wait(timeout=2)
+        return {"markdown": "# Done", "html": "<h1>Done</h1>"}
+
+    app = create_app(runner)
+    try:
+        with TestClient(app) as client:
+            job = client.post("/api/jobs", json=payload()).json()["job"]
+            assert started.wait(timeout=2)
+            assert client.get("/health").json() == {"ok": True}
+            release.set()
+            assert wait_for_completed(client, job["job_id"])["state"] == "succeeded"
+    finally:
+        release.set()
+        app.state.job_manager.shutdown()
