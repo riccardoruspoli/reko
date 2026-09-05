@@ -5,6 +5,7 @@ from iso639 import Lang
 from pytubefix import Playlist, YouTube
 from youtube_transcript_api import YouTubeTranscriptApi
 
+from reko.adapters.transcript_cache import TranscriptCache
 from reko.core.errors import TranscriptError, YouTubeError
 from reko.core.models import Transcript, TranscriptSegment
 from reko.core.transcript import resolve_language
@@ -48,8 +49,25 @@ def get_video(url: str) -> YouTube:
         raise YouTubeError(f"Failed to fetch video metadata: {url}") from e
 
 
-def get_transcription(video: YouTube, target_language: Lang) -> Transcript:
+def get_transcription(
+    video: YouTube,
+    target_language: Lang,
+    *,
+    refresh: bool = False,
+    cache: TranscriptCache | None = None,
+) -> Transcript:
     """Fetch a transcript in the requested language, falling back to English."""
+
+    cache = cache or TranscriptCache()
+    if not refresh:
+        cached_transcript = cache.load(video.video_id, target_language)
+        if cached_transcript is not None:
+            logger.info(
+                "Using cached %s transcript for video %s.",
+                cached_transcript.language.name,
+                video.video_id,
+            )
+            return cached_transcript
 
     ytt_api = YouTubeTranscriptApi()
     try:
@@ -70,10 +88,18 @@ def get_transcription(video: YouTube, target_language: Lang) -> Transcript:
             for snippet in transcript
             if snippet.text and snippet.text.strip()
         ]
-        return Transcript(
+        result = Transcript(
             segments=segments, language=resolve_language(transcript.language_code)
         )
     except Exception as e:
         raise TranscriptError(
             f"Failed to fetch transcript for video {video.video_id} (tried: {', '.join(language_priority)})."
         ) from e
+
+    try:
+        cache.save(video.video_id, target_language, result)
+    except OSError as error:
+        logger.warning(
+            "Could not save transcript cache for %s: %s", video.video_id, error
+        )
+    return result

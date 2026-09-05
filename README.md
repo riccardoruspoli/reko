@@ -49,6 +49,10 @@ At a high level, `reko` follows a simple pipeline:
 
 This approach allows `reko` to scale smoothly from short clips to multi-hour videos.
 
+### Transcript cache
+
+Raw YouTube transcripts are cached locally by video ID and requested language. Re-running a video with different output options or LLM settings reuses the cached transcript and avoids unnecessary YouTube requests. Set `REKO_DATA_DIR` to choose the cache location; use `--refresh-transcript` only when you explicitly need to fetch a fresh transcript.
+
 ## 📦 Installation
 
 ### Prerequisites

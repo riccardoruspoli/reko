@@ -13,3 +13,6 @@ summary/
 tox.ini
 .tox/
 transcripts/
+data/
+.pytest_cache/
+.uv-cache/

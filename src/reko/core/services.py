@@ -41,7 +41,9 @@ def _summarize_video_to_markdown(video: YouTube, config: SummaryConfig) -> str:
 
     logger.debug("Existing summary missing requested sections; regenerating.")
 
-    transcript = get_transcription(video, config.target_language)
+    transcript = get_transcription(
+        video, config.target_language, refresh=config.refresh_transcript
+    )
     logger.debug("Transcript contains %d words.", transcript.word_count)
 
     logger.info(
@@ -146,7 +148,9 @@ def summarize_one_with_stats(
     video = get_video(url)
     started_at = time.perf_counter()
 
-    transcript = get_transcription(video, config.target_language)
+    transcript = get_transcription(
+        video, config.target_language, refresh=config.refresh_transcript
+    )
     with dspy_context(config):
         output = generate_summary_outputs(
             transcript=transcript,

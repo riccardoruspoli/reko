@@ -115,6 +115,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Regenerate the summary even if it already exists.",
     )
     summarize_parser.add_argument(
+        "--refresh-transcript",
+        action="store_true",
+        help="Bypass the local raw-transcript cache and fetch a fresh copy from YouTube.",
+    )
+    summarize_parser.add_argument(
         "--verbose",
         action="store_true",
         help="Show detailed progress logs.",
@@ -214,6 +219,7 @@ def _build_config(args: argparse.Namespace) -> SummaryConfig:
         length=str(args.length),
         think=bool(args.think),
         reasoning_effort=args.reasoning_effort,
+        refresh_transcript=bool(args.refresh_transcript),
     )
 
 

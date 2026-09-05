@@ -27,6 +27,7 @@ class SummaryConfig:
     length: str
     think: bool
     reasoning_effort: str | None = None
+    refresh_transcript: bool = False
 
 
 @dataclass
