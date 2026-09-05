@@ -14,5 +14,6 @@ transcripts/
 data/
 .pytest_cache/
 .pytest-tmp/
+.pytest-run-*/
 .coverage
 .uv-cache/
