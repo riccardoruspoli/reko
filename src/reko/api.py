@@ -85,7 +85,7 @@ def create_app() -> FastAPI:
 
     app.mount("/static", StaticFiles(directory=str(web_dir / "static")), name="static")
 
-    @app.get("/healthz")
+    @app.get("/health")
     def healthcheck() -> dict[str, bool]:
         return {"ok": True}
 

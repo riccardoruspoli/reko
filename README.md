@@ -161,7 +161,7 @@ Open `http://YOUR_SERVER:8000`. Transcript cache files are persisted in `./data`
 Check service health with:
 
 ```bash
-curl http://localhost:8000/healthz
+curl http://localhost:8000/health
 ```
 
 ## 🧪 Development
