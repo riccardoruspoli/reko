@@ -6,7 +6,11 @@ from iso639 import Lang
 
 from reko.api import create_app
 from reko.core.errors import RekoError
-from reko.core.models import SummaryConfig
+from reko.core.models import (
+    DEFAULT_MAX_TOKENS,
+    DEFAULT_TARGET_CHUNK_WORDS,
+    SummaryConfig,
+)
 from reko.core.services import summarize
 
 logger = logging.getLogger(__name__)
@@ -63,13 +67,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     summarize_parser.add_argument(
         "--target-chunk-words",
         type=int,
-        default=800,
+        default=DEFAULT_TARGET_CHUNK_WORDS,
         help="Target words per chunk; chunks flush at segment boundaries, so this is a soft limit",
     )
     summarize_parser.add_argument(
         "--max-tokens",
         type=int,
-        default=16384,
+        default=DEFAULT_MAX_TOKENS,
         help="The maximum number of tokens to generate per response.",
     )
     summarize_parser.add_argument(

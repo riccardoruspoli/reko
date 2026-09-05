@@ -8,8 +8,6 @@ const modelNameInput = document.getElementById("model-name");
 const targetLanguageInput = document.getElementById("target-language");
 const temperatureInput = document.getElementById("temperature");
 const temperatureValue = document.getElementById("temperature-value");
-const targetChunkWordsInput = document.getElementById("target-chunk-words");
-const maxTokensInput = document.getElementById("max-tokens");
 const maxRetriesInput = document.getElementById("max-retries");
 const lengthSelect = document.getElementById("length");
 const reasoningEffortSelect = document.getElementById("reasoning-effort");
@@ -68,8 +66,6 @@ function readSettingsFromForm() {
     length: lengthSelect?.value || "medium",
     reasoningEffort: reasoningEffortSelect?.value || "",
     temperature: readNumber(temperatureInput, 1),
-    targetChunkWords: readNumber(targetChunkWordsInput, 800),
-    maxTokens: readNumber(maxTokensInput, 16384),
     maxRetries: readNumber(maxRetriesInput, 3),
     think: Boolean(thinkToggle?.checked),
     includeSummary: Boolean(includeSummaryToggle?.checked ?? true),
@@ -99,12 +95,6 @@ function applySettingsToForm(settings) {
   }
   if (temperatureInput && settings.temperature != null) {
     temperatureInput.value = String(settings.temperature);
-  }
-  if (targetChunkWordsInput && settings.targetChunkWords != null) {
-    targetChunkWordsInput.value = String(settings.targetChunkWords);
-  }
-  if (maxTokensInput && settings.maxTokens != null) {
-    maxTokensInput.value = String(settings.maxTokens);
   }
   if (maxRetriesInput && settings.maxRetries != null) {
     maxRetriesInput.value = String(settings.maxRetries);
@@ -171,8 +161,6 @@ function buildConfigPayload() {
     modelName: (modelNameInput?.value || "").trim(),
     targetLanguage: (targetLanguageInput?.value || "").trim(),
     temperature: readNumber(temperatureInput, 1),
-    targetChunkWords: readNumber(targetChunkWordsInput, 800),
-    maxTokens: readNumber(maxTokensInput, 16384),
     maxRetries: readNumber(maxRetriesInput, 3),
     think: Boolean(thinkToggle?.checked),
     includeSummary: Boolean(includeSummaryToggle?.checked ?? true),
@@ -253,8 +241,6 @@ applySettingsToForm(loadCachedSettings());
   lengthSelect,
   reasoningEffortSelect,
   temperatureInput,
-  targetChunkWordsInput,
-  maxTokensInput,
   maxRetriesInput,
   thinkToggle,
   includeSummaryToggle,

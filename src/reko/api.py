@@ -10,7 +10,11 @@ from fastapi.templating import Jinja2Templates
 from iso639 import Lang
 
 from reko.core.errors import RekoError
-from reko.core.models import SummaryConfig
+from reko.core.models import (
+    DEFAULT_MAX_TOKENS,
+    DEFAULT_TARGET_CHUNK_WORDS,
+    SummaryConfig,
+)
 from reko.core.services import summarize_one_with_stats
 
 
@@ -47,8 +51,6 @@ def _build_summary_config(config: dict) -> SummaryConfig:
         raise ValueError("At least one of summary/key points must be enabled.")
 
     temperature = float(config["temperature"])
-    target_chunk_words = int(config["targetChunkWords"])
-    max_tokens = int(config["maxTokens"])
     max_retries = int(config["maxRetries"])
 
     think = bool(config["think"])
@@ -59,8 +61,8 @@ def _build_summary_config(config: dict) -> SummaryConfig:
     return SummaryConfig(
         host=host,
         model=model,
-        target_chunk_words=target_chunk_words,
-        max_tokens=max_tokens,
+        target_chunk_words=DEFAULT_TARGET_CHUNK_WORDS,
+        max_tokens=DEFAULT_MAX_TOKENS,
         temperature=temperature,
         force=True,
         include_summary=include_summary,
