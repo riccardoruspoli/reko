@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import uuid
 from collections.abc import Callable, Generator
@@ -62,6 +63,11 @@ class SummaryJob:
 JobRunner = Callable[
     [str, SummaryConfig, ProgressReporter, CancelCheck], dict[str, Any]
 ]
+_SECRET_VALUE_RE = re.compile(
+    r"\b(api[_-]?key|authorization|token|password)\s*[=:]\s*[^\s,;]+",
+    flags=re.IGNORECASE,
+)
+_URL_CREDENTIALS_RE = re.compile(r"(https?://)[^\s/@]+@", flags=re.IGNORECASE)
 
 
 def _max_concurrent_jobs() -> int:
@@ -70,6 +76,11 @@ def _max_concurrent_jobs() -> int:
         return max(1, int(value))
     except ValueError:
         return 1
+
+
+def _safe_error(error: Exception) -> str:
+    message = _SECRET_VALUE_RE.sub(r"\1=[redacted]", str(error))
+    return _URL_CREDENTIALS_RE.sub(r"\1[redacted]@", message)
 
 
 class JobManager:
@@ -196,7 +207,7 @@ class JobManager:
                 job.state = JobState.FAILED
                 job.phase = "failed"
                 job.message = "Job failed"
-                job.error = str(error)
+                job.error = _safe_error(error)
                 job.finished_at = datetime.now(UTC)
                 self._append_event(job, "terminal")
         else:

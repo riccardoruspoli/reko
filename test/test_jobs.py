@@ -191,3 +191,23 @@ def test_job_concurrency_environment_defaults(monkeypatch) -> None:
     assert jobs._max_concurrent_jobs() == 1
     monkeypatch.setenv("REKO_MAX_CONCURRENT_JOBS", "2")
     assert jobs._max_concurrent_jobs() == 2
+
+
+def test_job_errors_redact_sensitive_values() -> None:
+    def runner(
+        url: str,
+        config: SummaryConfig,
+        report: ProgressReporter,
+        is_cancelled: CancelCheck,
+    ) -> dict[str, object]:
+        raise RuntimeError("token=secret https://user:password@example.test")
+
+    manager = JobManager(runner, max_concurrent_jobs=1)
+    try:
+        job = manager.submit("https://example.test", make_config())
+        failed = wait_for(
+            manager, job["job_id"], lambda snapshot: snapshot["state"] == "failed"
+        )
+        assert failed["error"] == "token=[redacted] https://[redacted]@example.test"
+    finally:
+        manager.shutdown()
