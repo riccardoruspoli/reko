@@ -7,12 +7,12 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
 
 summary/
-tox.ini
-.tox/
 transcripts/
 data/
 .pytest_cache/
+.pytest-tmp/
+.coverage
 .uv-cache/

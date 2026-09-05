@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: "3.14"
           enable-cache: true
-      - run: uv sync --locked --extra dev
+      - run: uv sync --locked --group dev
       - run: uv run ruff format --check src test
       - run: uv run ruff check src test
       - run: uv run python -m pytest

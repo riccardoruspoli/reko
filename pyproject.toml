@@ -44,9 +44,6 @@ Homepage = "https://github.com/riccardoruspoli/reko"
 Repository = "https://github.com/riccardoruspoli/reko"
 Issues = "https://github.com/riccardoruspoli/reko/issues"
 
-[project.optional-dependencies]
-dev = ["pytest~=9.0.2", "pytest-cov~=7.0.0", "ruff~=0.15.1"]
-
 [project.scripts]
 reko = "reko.__main__:main"
 
@@ -62,4 +59,12 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-addopts = "-ra"
+addopts = "-rav"
+
+[dependency-groups]
+dev = [
+  "pytest~=9.0.2",
+  "pytest-cov~=7.0.0",
+  "ruff~=0.15.1",
+  "git-cliff~=2.13.1",
+]

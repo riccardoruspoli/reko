@@ -169,14 +169,12 @@ curl http://localhost:8000/health
 All automated checks are offline and use mock data only. Install the development dependencies and run them with `uv`:
 
 ```bash
-uv sync --extra dev
+uv sync --group dev
 uv run ruff format --check src test
 uv run ruff check src test
-uv run python -m pytest
+uv run python -m pytest --cov=src/reko --cov-branch --cov-report=term-missing
 uv build
 ```
-
-`tox` is intentionally not used: it previously performed live YouTube and provider calls, which are unsuitable for repeatable tests.
 
 ## 🚀 Releases
 
