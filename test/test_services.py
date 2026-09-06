@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 from iso639 import Lang
 
+from reko.adapters.transcript_cache import CachedTranscript
 from reko.core import services
 from reko.core.errors import InputError, JobCancelledError
 from reko.core.models import SummaryConfig, SummaryOutput, Transcript, TranscriptSegment
@@ -79,6 +80,33 @@ def test_summarize_one_with_stats_reports_phases_and_translates(monkeypatch) -> 
         "rendering",
         "translating",
     }
+
+
+def test_summarize_one_with_stats_uses_cached_title_without_youtube_metadata(
+    monkeypatch,
+) -> None:
+    cached = CachedTranscript(fake_transcript(), "Cached title")
+    cache = type("Cache", (), {"load": lambda *_args: cached})()
+    monkeypatch.setattr(services, "TranscriptCache", lambda: cache)
+    monkeypatch.setattr(
+        services,
+        "get_video",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("metadata must stay local")
+        ),
+    )
+    monkeypatch.setattr(services, "dspy_context", lambda _: nullcontext())
+    monkeypatch.setattr(
+        services,
+        "generate_summary_outputs",
+        lambda **_kwargs: SummaryOutput("summary", None),
+    )
+
+    markdown, *_ = services.summarize_one_with_stats(
+        "https://www.youtube.com/watch?v=cached-id", config()
+    )
+
+    assert markdown.startswith("# Cached title")
 
 
 def test_service_guards_and_cancellation(monkeypatch, tmp_path) -> None:

@@ -50,6 +50,25 @@ def get_video(url: str) -> YouTube:
         raise YouTubeError(f"Failed to fetch video metadata: {url}") from e
 
 
+def get_video_id(url: str) -> str | None:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return None
+
+    host = parsed.netloc.lower().removeprefix("www.")
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if host == "youtu.be" and path_parts:
+        return path_parts[0]
+    if host.endswith("youtube.com"):
+        video_id = parse_qs(parsed.query).get("v", [""])[0]
+        if video_id:
+            return video_id
+        if len(path_parts) >= 2 and path_parts[0] in {"embed", "shorts", "live"}:
+            return path_parts[1]
+    return None
+
+
 def get_transcription(
     video: YouTube,
     target_language: Lang,
@@ -57,21 +76,22 @@ def get_transcription(
     refresh: bool = False,
     cache: TranscriptCache | None = None,
     cache_status: Callable[[bool], None] | None = None,
+    title: str | None = None,
 ) -> Transcript:
     """Fetch a transcript in the requested language, falling back to English."""
 
     cache = cache or TranscriptCache()
     if not refresh:
-        cached_transcript = cache.load(video.video_id, target_language)
-        if cached_transcript is not None:
+        cached_record = cache.load(video.video_id, target_language)
+        if cached_record is not None:
             if cache_status:
                 cache_status(True)
             logger.info(
                 "Using cached %s transcript for video %s.",
-                cached_transcript.language.name,
+                cached_record.transcript.language.name,
                 video.video_id,
             )
-            return cached_transcript
+            return cached_record.transcript
 
     if cache_status:
         cache_status(False)
@@ -104,7 +124,7 @@ def get_transcription(
         ) from e
 
     try:
-        cache.save(video.video_id, target_language, result)
+        cache.save(video.video_id, target_language, result, title=title)
     except OSError as error:
         logger.warning(
             "Could not save transcript cache for %s: %s", video.video_id, error

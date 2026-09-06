@@ -2,19 +2,24 @@ import logging
 import os
 import re
 import time
+from collections.abc import Callable
+from types import SimpleNamespace
+from typing import Any
 
 from pytubefix import YouTube
 
 from reko.adapters.dspy.config import dspy_context
 from reko.adapters.storage import is_summary_complete, save_summary
+from reko.adapters.transcript_cache import TranscriptCache
 from reko.adapters.youtube import (
     get_playlist_videos,
     get_transcription,
     get_video,
+    get_video_id,
     is_playlist,
 )
 from reko.core.errors import InputError, JobCancelledError
-from reko.core.models import SummaryConfig, SummaryDocument
+from reko.core.models import SummaryConfig, SummaryDocument, Transcript
 from reko.core.progress import CancelCheck, ProgressEvent, ProgressReporter
 from reko.core.summarizer import generate_summary_outputs
 from reko.core.translation import translate_key_points, translate_text
@@ -27,17 +32,60 @@ def _count_words(text: str) -> int:
     return len(_WORD_RE.findall(text))
 
 
-def _video_title(video: YouTube) -> str:
+def _cached_title_or_none(video: YouTube) -> str | None:
     try:
         title = str(video.title).strip()
     except Exception as error:
         logger.warning(
-            "Could not load the title for video %s; using a fallback title: %s",
+            "Could not load the title for video %s: %s",
             video.video_id,
             error,
         )
-        return f"YouTube video {video.video_id}"
-    return title or f"YouTube video {video.video_id}"
+        return None
+    return title or None
+
+
+def _video_title(video: Any) -> str:
+    return _cached_title_or_none(video) or f"YouTube video {video.video_id}"
+
+
+def _load_video_and_transcript(
+    url: str,
+    config: SummaryConfig,
+    *,
+    cache_status: Callable[[bool], None] | None = None,
+) -> tuple[Any, Transcript]:
+    cache = TranscriptCache()
+    video_id = get_video_id(url)
+    if video_id and not config.refresh_transcript:
+        cached_record = cache.load(video_id, config.target_language)
+        if cached_record is not None:
+            if cache_status:
+                cache_status(True)
+            logger.info(
+                "Using cached %s transcript for video %s.",
+                cached_record.transcript.language.name,
+                video_id,
+            )
+            return (
+                SimpleNamespace(
+                    video_id=video_id,
+                    title=cached_record.title or f"YouTube video {video_id}",
+                ),
+                cached_record.transcript,
+            )
+
+    video = get_video(url)
+    title = _cached_title_or_none(video)
+    transcript = get_transcription(
+        video,
+        config.target_language,
+        refresh=config.refresh_transcript,
+        cache=cache,
+        cache_status=cache_status,
+        title=title,
+    )
+    return video, transcript
 
 
 def _summarize_video_to_markdown(video: YouTube, config: SummaryConfig) -> str:
@@ -164,15 +212,12 @@ def summarize_one_with_stats(
 
     _report(progress, "video", "Resolving video details")
     _ensure_not_cancelled(cancel_check)
-    video = get_video(url)
     started_at = time.perf_counter()
-
     _report(progress, "transcript", "Loading transcript")
     _ensure_not_cancelled(cancel_check)
-    transcript = get_transcription(
-        video,
-        config.target_language,
-        refresh=config.refresh_transcript,
+    video, transcript = _load_video_and_transcript(
+        url,
+        config,
         cache_status=lambda hit: _report(
             progress,
             "transcript",

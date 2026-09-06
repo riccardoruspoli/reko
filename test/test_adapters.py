@@ -9,6 +9,7 @@ from iso639 import Lang
 from reko.adapters import youtube
 from reko.adapters.dspy import config as dspy_config
 from reko.adapters.dspy import modules
+from reko.adapters.transcript_cache import CachedTranscript
 from reko.core.errors import TranscriptError, YouTubeError
 from reko.core.models import SummaryConfig, Transcript, TranscriptSegment
 
@@ -109,6 +110,10 @@ def test_youtube_url_detection_and_wrapped_provider_errors(monkeypatch) -> None:
     assert youtube.is_playlist("https://youtube.test/playlist?list=123")
     assert not youtube.is_playlist("https://youtube.test/watch?v=1&list=123")
     assert not youtube.is_playlist("not a url")
+    assert youtube.get_video_id("https://www.youtube.com/watch?v=abc") == "abc"
+    assert youtube.get_video_id("https://youtu.be/abc") == "abc"
+    assert youtube.get_video_id("https://www.youtube.com/shorts/abc") == "abc"
+    assert youtube.get_video_id("https://example.test/video") is None
 
     monkeypatch.setattr(youtube, "YouTube", lambda url: {"url": url})
     monkeypatch.setattr(
@@ -133,7 +138,7 @@ def test_get_transcription_uses_cache_fetches_and_handles_provider_errors(
     monkeypatch,
 ) -> None:
     cached = Transcript([TranscriptSegment("cached", 0, 1)], Lang("en"))
-    cache = SimpleNamespace(load=lambda *_: cached)
+    cache = SimpleNamespace(load=lambda *_: CachedTranscript(cached, "Cached title"))
     video = SimpleNamespace(video_id="abc")
     cache_status: list[bool] = []
     assert (
@@ -146,7 +151,8 @@ def test_get_transcription_uses_cache_fetches_and_handles_provider_errors(
 
     saved: list[Transcript] = []
     cache = SimpleNamespace(
-        load=lambda *_: None, save=lambda *_args: saved.append(_args[-1])
+        load=lambda *_: None,
+        save=lambda *_args, **_kwargs: saved.append(_args[-1]),
     )
     snippets = [
         SimpleNamespace(text=" first ", start=1, duration=2),

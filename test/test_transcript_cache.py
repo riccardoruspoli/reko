@@ -25,13 +25,14 @@ def test_cache_round_trip_preserves_raw_segments(tmp_path: Path) -> None:
     cache = TranscriptCache(tmp_path)
     transcript = make_transcript()
 
-    cache.save("video-123", Lang("it"), transcript)
+    cache.save("video-123", Lang("it"), transcript, title="A video title")
 
     restored = cache.load("video-123", Lang("it"))
 
     assert restored is not None
-    assert restored.language.pt1 == "en"
-    assert restored.segments == transcript.segments
+    assert restored.transcript.language.pt1 == "en"
+    assert restored.transcript.segments == transcript.segments
+    assert restored.title == "A video title"
     assert (tmp_path / "transcripts" / "video-123" / "it.json").is_file()
 
 
@@ -100,7 +101,9 @@ def test_refresh_transcript_bypasses_cache_and_replaces_it(
     transcript = get_transcription(video, Lang("en"), refresh=True, cache=cache)
 
     assert [segment.text for segment in transcript.segments] == ["Fresh transcript."]
-    assert cache.load("video-123", Lang("en")) == transcript
+    restored = cache.load("video-123", Lang("en"))
+    assert restored is not None
+    assert restored.transcript == transcript
 
 
 def test_cache_validates_payloads_paths_and_data_directory(
@@ -152,6 +155,24 @@ def test_cache_validates_payloads_paths_and_data_directory(
         cache._decode(
             {**valid_prefix, "segments": [{"text": " "}]}, "video", Lang("en")
         )
+
+
+def test_cache_reads_schema_v1_without_a_title(tmp_path: Path) -> None:
+    cache = TranscriptCache(tmp_path)
+    path = tmp_path / "transcripts" / "video" / "en.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        '{"version":1,"video_id":"video","requested_language":"en",'
+        '"resolved_language":"en","segments":[{"text":"cached",'
+        '"start":0,"duration":1}]}',
+        encoding="utf-8",
+    )
+
+    restored = cache.load("video", Lang("en"))
+
+    assert restored is not None
+    assert restored.title is None
+    assert restored.transcript.segments[0].text == "cached"
 
 
 def test_cache_save_removes_temporary_file_when_replacement_fails(
