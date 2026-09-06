@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from secrets import token_urlsafe
 
+import bleach
 import markdown as md
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -18,6 +20,26 @@ from reko.core.models import (
 from reko.core.progress import CancelCheck, ProgressReporter
 from reko.core.services import summarize_one_with_stats
 from reko.web.jobs import JobManager, JobRunner
+
+_ALLOWED_HTML_TAGS = frozenset(bleach.sanitizer.ALLOWED_TAGS) | {
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "p",
+    "pre",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "hr",
+}
+_ALLOWED_HTML_ATTRIBUTES = {"a": ["href", "title"], "code": ["class"]}
+_ALLOWED_HTML_PROTOCOLS = {"http", "https", "mailto"}
 
 
 def _build_summary_config(config: dict) -> SummaryConfig:
@@ -102,10 +124,16 @@ def _result_payload(
     elapsed_seconds: float,
     video_id: str,
 ) -> dict:
-    html = md.markdown(
-        markdown_text,
-        extensions=["fenced_code", "tables"],
-        output_format="html5",
+    rendered_html = md.markdown(
+        markdown_text, extensions=["fenced_code", "tables"], output_format="html5"
+    )
+    html = bleach.clean(
+        rendered_html,
+        tags=_ALLOWED_HTML_TAGS,
+        attributes=_ALLOWED_HTML_ATTRIBUTES,
+        protocols=_ALLOWED_HTML_PROTOCOLS,
+        strip=True,
+        strip_comments=True,
     )
     return {
         "ok": True,
@@ -161,17 +189,40 @@ def create_app(job_runner: JobRunner | None = None) -> FastAPI:
 
     app.mount("/static", StaticFiles(directory=str(web_dir / "static")), name="static")
 
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault(
+            "Permissions-Policy", "camera=(), geolocation=(), microphone=()"
+        )
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        return response
+
     @app.get("/health")
     def healthcheck() -> dict[str, bool]:
         return {"ok": True}
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
-        return templates.TemplateResponse(
+        nonce = token_urlsafe(16)
+        response = templates.TemplateResponse(
             request,
             "index.html",
-            {},
+            {"csp_nonce": nonce},
         )
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            f"script-src 'self' 'nonce-{nonce}' https://cdn.tailwindcss.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https://lh3.googleusercontent.com; "
+            "connect-src 'self'; object-src 'none'; base-uri 'self'; "
+            "form-action 'self'; frame-ancestors 'none'"
+        )
+        return response
 
     @app.post("/api/summarize")
     async def api_summarize(request: Request):

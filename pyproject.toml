@@ -27,6 +27,7 @@ classifiers = [
   "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = [
+  "bleach~=6.3.0",
   "dspy~=3.2.1",
   "fastapi~=0.136.3",
   "iso639-lang~=2.6.3",

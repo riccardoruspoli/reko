@@ -15,8 +15,11 @@
       rel="stylesheet"
     />
     <link href="/static/style.css" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
-    <script id="tailwind-config">
+    <script
+      nonce="{{ csp_nonce }}"
+      src="https://cdn.tailwindcss.com/3.4.17?plugins=forms,typography,container-queries"
+    ></script>
+    <script id="tailwind-config" nonce="{{ csp_nonce }}">
       tailwind.config = {
         darkMode: "class",
         theme: {
