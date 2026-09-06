@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from iso639 import Lang
 
+from reko.__version__ import __version__
 from reko.core.errors import RekoError
 from reko.core.models import (
     DEFAULT_MAX_TOKENS,
@@ -184,7 +185,7 @@ def create_app(job_runner: JobRunner | None = None) -> FastAPI:
     web_dir = Path(__file__).resolve().parent / "web"
     templates = Jinja2Templates(directory=str(web_dir / "templates"))
 
-    app = FastAPI(title="reko", version="0.2.0")
+    app = FastAPI(title="reko", version=__version__)
     app.state.job_manager = JobManager(job_runner or _default_job_runner)
 
     app.mount("/static", StaticFiles(directory=str(web_dir / "static")), name="static")

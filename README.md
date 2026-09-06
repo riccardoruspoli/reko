@@ -191,7 +191,7 @@ uv build
 
 The release workflow runs when a `vX.Y.Z` tag is pushed. It runs the offline quality checks, builds the Python distributions, publishes to PyPI through Trusted Publishing, pushes a tagged image to GHCR, and creates GitHub release notes with git-cliff.
 
-Before the first release, configure PyPI Trusted Publishing for this repository and the `release.yml` workflow, create the protected GitHub environment named `pypi`, and set the GHCR package visibility you want. The tag version must match the version in `pyproject.toml` and `src/reko/__version__.py`.
+Before the first release, configure PyPI Trusted Publishing for this repository and the `release.yml` workflow, create the protected GitHub environment named `pypi`, and set the GHCR package visibility you want. Set the release version in `pyproject.toml`; the workflow verifies that the tag version matches it.
 
 To refresh the committed changelog before creating a release, run git-cliff locally:
 

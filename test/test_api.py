@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from reko import api
+from reko.__version__ import __version__
 from reko.api import _build_summary_config, _result_payload, create_app
 
 
@@ -12,6 +13,7 @@ def test_healthcheck_is_available_without_external_services() -> None:
     route = next(route for route in app.routes if route.path == "/health")
 
     assert route.endpoint() == {"ok": True}
+    assert app.version == __version__
 
 
 def payload() -> dict[str, object]:

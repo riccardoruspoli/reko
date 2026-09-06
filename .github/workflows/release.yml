@@ -22,6 +22,16 @@ jobs:
           python-version: "3.14"
           enable-cache: true
       - run: uv sync --locked --group dev
+      - name: Verify release tag matches package version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          package_version="$(uv run python -c "from importlib.metadata import version; print(version('reko-yt'))")"
+          expected_tag="v${package_version}"
+          test "$RELEASE_TAG" = "$expected_tag" || {
+            echo "Release tag $RELEASE_TAG does not match package version $package_version."
+            exit 1
+          }
       - run: uv run ruff format --check src test
       - run: uv run ruff check src test
       - run: uv run python -m pytest --cov=src/reko --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=90

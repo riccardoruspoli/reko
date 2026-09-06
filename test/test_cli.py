@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import runpy
+from importlib.metadata import version
 
 import pytest
 
@@ -78,4 +79,4 @@ def test_module_entrypoint_and_version(monkeypatch) -> None:
     with pytest.raises(SystemExit) as error:
         runpy.run_module("reko.__main__", run_name="__main__")
     assert error.value.code == 0
-    assert __version__ == "0.2.0"
+    assert __version__ == version("reko-yt")
