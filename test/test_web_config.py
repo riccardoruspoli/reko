@@ -20,6 +20,7 @@ def test_web_config_uses_internal_generation_defaults() -> None:
     )
 
     assert config.target_chunk_words == DEFAULT_TARGET_CHUNK_WORDS
+    assert DEFAULT_TARGET_CHUNK_WORDS == 1200
     assert config.max_tokens == DEFAULT_MAX_TOKENS
     assert config.refresh_transcript is False
 
