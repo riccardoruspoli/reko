@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from dataclasses import asdict
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -53,7 +53,7 @@ class TranscriptCache:
             "video_id": video_id,
             "requested_language": requested_language.pt1,
             "resolved_language": transcript.language.pt1,
-            "fetched_at": datetime.now(UTC).isoformat(),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
             "segments": [asdict(segment) for segment in transcript.segments],
         }
 

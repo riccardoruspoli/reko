@@ -8,7 +8,7 @@ import uuid
 from collections.abc import Callable, Generator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
@@ -51,7 +51,9 @@ class SummaryJob:
     error: str | None = None
     cancel_requested: bool = False
     finished_at: datetime | None = None
-    phase_started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    phase_started_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     phase_durations_seconds: dict[str, float] = field(default_factory=dict)
     events: list[JobEvent] = field(default_factory=list)
     condition: threading.Condition = field(
@@ -104,7 +106,9 @@ class JobManager:
 
     def submit(self, url: str, config: SummaryConfig) -> dict[str, Any]:
         self._prune()
-        job = SummaryJob(job_id=str(uuid.uuid4()), submitted_at=datetime.now(UTC))
+        job = SummaryJob(
+            job_id=str(uuid.uuid4()), submitted_at=datetime.now(timezone.utc)
+        )
         with self._lock:
             self._jobs[job.job_id] = job
         self._emit(job, "state")
@@ -126,7 +130,7 @@ class JobManager:
                 job.state = JobState.CANCELLED
                 job.phase = "cancelled"
                 job.message = "Cancelled before execution"
-                job.finished_at = datetime.now(UTC)
+                job.finished_at = datetime.now(timezone.utc)
             else:
                 job.state = JobState.CANCELLING
                 job.message = "Cancelling after the current step"
@@ -172,7 +176,7 @@ class JobManager:
                 job.state = JobState.CANCELLED
                 job.phase = "cancelled"
                 job.message = "Cancelled before execution"
-                job.finished_at = datetime.now(UTC)
+                job.finished_at = datetime.now(timezone.utc)
                 self._append_event(job, "state")
                 return
             self._complete_phase(job, "starting")
@@ -208,7 +212,7 @@ class JobManager:
                 job.phase = "failed"
                 job.message = "Job failed"
                 job.error = _safe_error(error)
-                job.finished_at = datetime.now(UTC)
+                job.finished_at = datetime.now(timezone.utc)
                 self._append_event(job, "terminal")
         else:
             with job.condition:
@@ -220,7 +224,7 @@ class JobManager:
                 job.phase = "completed"
                 job.message = "Job completed"
                 job.result = result
-                job.finished_at = datetime.now(UTC)
+                job.finished_at = datetime.now(timezone.utc)
                 self._append_event(job, "terminal")
 
     def _finish_cancelled(self, job: SummaryJob) -> None:
@@ -229,7 +233,7 @@ class JobManager:
             job.state = JobState.CANCELLED
             job.phase = "cancelled"
             job.message = "Job cancelled"
-            job.finished_at = datetime.now(UTC)
+            job.finished_at = datetime.now(timezone.utc)
             self._append_event(job, "terminal")
 
     def _emit(self, job: SummaryJob, name: str) -> None:
@@ -245,7 +249,7 @@ class JobManager:
 
     @staticmethod
     def _snapshot(job: SummaryJob) -> dict[str, Any]:
-        elapsed_end = job.finished_at or datetime.now(UTC)
+        elapsed_end = job.finished_at or datetime.now(timezone.utc)
         return {
             "job_id": job.job_id,
             "state": job.state.value,
@@ -274,7 +278,7 @@ class JobManager:
                 raise KeyError(f"Unknown job: {job_id}") from error
 
     def _prune(self) -> None:
-        cutoff = datetime.now(UTC) - self._retention
+        cutoff = datetime.now(timezone.utc) - self._retention
         with self._lock:
             expired = [
                 job_id
@@ -288,7 +292,7 @@ class JobManager:
     def _complete_phase(job: SummaryJob, next_phase: str) -> None:
         if job.phase == next_phase:
             return
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         elapsed = (now - job.phase_started_at).total_seconds()
         job.phase_durations_seconds[job.phase] = round(
             job.phase_durations_seconds.get(job.phase, 0) + elapsed, 3
