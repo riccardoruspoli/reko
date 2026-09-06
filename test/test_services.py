@@ -103,10 +103,43 @@ def test_summarize_one_with_stats_uses_cached_title_without_youtube_metadata(
     )
 
     markdown, *_ = services.summarize_one_with_stats(
-        "https://www.youtube.com/watch?v=cached-id", config()
+        "https://www.youtube.com/watch?v=A4Ncs9gXBAI", config()
     )
 
     assert markdown.startswith("# Cached title")
+
+
+def test_summarize_one_with_stats_backfills_missing_cached_title(monkeypatch) -> None:
+    cached = CachedTranscript(fake_transcript(), None)
+    saved = []
+    cache = SimpleNamespace(
+        load=lambda *_args: cached,
+        save=lambda *args, **kwargs: saved.append((args, kwargs)),
+    )
+    monkeypatch.setattr(services, "TranscriptCache", lambda: cache)
+    monkeypatch.setattr(
+        services,
+        "get_video",
+        lambda *_args: SimpleNamespace(video_id="A4Ncs9gXBAI", title="Recovered title"),
+    )
+    monkeypatch.setattr(services, "dspy_context", lambda _: nullcontext())
+    monkeypatch.setattr(
+        services,
+        "generate_summary_outputs",
+        lambda **_kwargs: SummaryOutput("summary", None),
+    )
+
+    markdown, *_ = services.summarize_one_with_stats(
+        "https://www.youtube.com/watch?v=A4Ncs9gXBAI", config()
+    )
+
+    assert markdown.startswith("# Recovered title")
+    assert saved == [
+        (
+            ("A4Ncs9gXBAI", Lang("en"), cached.transcript),
+            {"title": "Recovered title"},
+        )
+    ]
 
 
 def test_service_guards_and_cancellation(monkeypatch, tmp_path) -> None:
@@ -148,7 +181,9 @@ def test_summarize_dispatches_file_playlist_and_single_video(
 def test_markdown_service_reuses_existing_output_and_saves_new_output(
     monkeypatch, capsys
 ) -> None:
-    video = SimpleNamespace(video_id="id", title="Title")
+    video = SimpleNamespace(
+        video_id="id", title="Title", watch_url="https://example.test"
+    )
     monkeypatch.setattr(services, "is_summary_complete", lambda *_: True)
 
     class ExistingFile:
@@ -189,6 +224,7 @@ def test_service_uses_a_fallback_title_when_metadata_is_unavailable(
 ) -> None:
     class Video:
         video_id = "id"
+        watch_url = "https://example.test"
 
         @property
         def title(self) -> str:
@@ -205,6 +241,7 @@ def test_service_uses_a_fallback_title_when_metadata_is_unavailable(
         "generate_summary_outputs",
         lambda **_kwargs: SummaryOutput("summary", ["point"]),
     )
+    monkeypatch.setattr(services, "get_video_title", lambda *_args: None)
 
     result = services._summarize_video_to_markdown(Video(), config())
 

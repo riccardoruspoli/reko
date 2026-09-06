@@ -1,9 +1,12 @@
+import json
 import logging
 from collections.abc import Callable
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.request import urlopen
 
 from iso639 import Lang
 from pytubefix import Playlist, YouTube
+from pytubefix.extract import video_id as extract_video_id
 from youtube_transcript_api import YouTubeTranscriptApi
 
 from reko.adapters.transcript_cache import TranscriptCache
@@ -52,21 +55,38 @@ def get_video(url: str) -> YouTube:
 
 def get_video_id(url: str) -> str | None:
     try:
-        parsed = urlparse(url)
-    except ValueError:
+        return extract_video_id(url)
+    except Exception:
         return None
 
-    host = parsed.netloc.lower().removeprefix("www.")
-    path_parts = [part for part in parsed.path.split("/") if part]
-    if host == "youtu.be" and path_parts:
-        return path_parts[0]
-    if host.endswith("youtube.com"):
-        video_id = parse_qs(parsed.query).get("v", [""])[0]
-        if video_id:
-            return video_id
-        if len(path_parts) >= 2 and path_parts[0] in {"embed", "shorts", "live"}:
-            return path_parts[1]
-    return None
+
+def get_video_title(video: YouTube, url: str) -> str | None:
+    try:
+        title = str(video.title).strip()
+    except Exception as error:
+        logger.debug(
+            "Pytubefix could not load the title for video %s: %s",
+            video.video_id,
+            error,
+        )
+    else:
+        return title or None
+
+    oembed_url = "https://www.youtube.com/oembed?" + urlencode(
+        {"url": url, "format": "json"}
+    )
+    try:
+        with urlopen(oembed_url, timeout=5) as response:  # noqa: S310
+            payload = json.load(response)
+        title = payload.get("title")
+    except (OSError, ValueError, TypeError) as error:
+        logger.warning(
+            "Could not load the title for video %s: %s",
+            video.video_id,
+            error,
+        )
+        return None
+    return title.strip() if isinstance(title, str) and title.strip() else None
 
 
 def get_transcription(

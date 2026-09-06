@@ -16,6 +16,7 @@ from reko.adapters.youtube import (
     get_transcription,
     get_video,
     get_video_id,
+    get_video_title,
     is_playlist,
 )
 from reko.core.errors import InputError, JobCancelledError
@@ -32,21 +33,19 @@ def _count_words(text: str) -> int:
     return len(_WORD_RE.findall(text))
 
 
-def _cached_title_or_none(video: YouTube) -> str | None:
-    try:
-        title = str(video.title).strip()
-    except Exception as error:
-        logger.warning(
-            "Could not load the title for video %s: %s",
-            video.video_id,
-            error,
-        )
-        return None
-    return title or None
+def _cached_title_or_none(video: YouTube, url: str) -> str | None:
+    return get_video_title(video, url)
 
 
 def _video_title(video: Any) -> str:
-    return _cached_title_or_none(video) or f"YouTube video {video.video_id}"
+    if isinstance(video, YouTube):
+        title = _cached_title_or_none(video, video.watch_url)
+    else:
+        try:
+            title = str(video.title).strip()
+        except Exception:
+            title = None
+    return title or f"YouTube video {video.video_id}"
 
 
 def _load_video_and_transcript(
@@ -60,6 +59,24 @@ def _load_video_and_transcript(
     if video_id and not config.refresh_transcript:
         cached_record = cache.load(video_id, config.target_language)
         if cached_record is not None:
+            title = cached_record.title
+            if title is None:
+                video = get_video(url)
+                title = _cached_title_or_none(video, url)
+                if title is not None:
+                    try:
+                        cache.save(
+                            video_id,
+                            config.target_language,
+                            cached_record.transcript,
+                            title=title,
+                        )
+                    except OSError as error:
+                        logger.warning(
+                            "Could not save title metadata for %s: %s",
+                            video_id,
+                            error,
+                        )
             if cache_status:
                 cache_status(True)
             logger.info(
@@ -70,13 +87,13 @@ def _load_video_and_transcript(
             return (
                 SimpleNamespace(
                     video_id=video_id,
-                    title=cached_record.title or f"YouTube video {video_id}",
+                    title=title or f"YouTube video {video_id}",
                 ),
                 cached_record.transcript,
             )
 
     video = get_video(url)
-    title = _cached_title_or_none(video)
+    title = _cached_title_or_none(video, url)
     transcript = get_transcription(
         video,
         config.target_language,

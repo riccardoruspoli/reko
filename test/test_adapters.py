@@ -110,9 +110,14 @@ def test_youtube_url_detection_and_wrapped_provider_errors(monkeypatch) -> None:
     assert youtube.is_playlist("https://youtube.test/playlist?list=123")
     assert not youtube.is_playlist("https://youtube.test/watch?v=1&list=123")
     assert not youtube.is_playlist("not a url")
-    assert youtube.get_video_id("https://www.youtube.com/watch?v=abc") == "abc"
-    assert youtube.get_video_id("https://youtu.be/abc") == "abc"
-    assert youtube.get_video_id("https://www.youtube.com/shorts/abc") == "abc"
+    video_id = "A4Ncs9gXBAI"
+    assert (
+        youtube.get_video_id(f"https://www.youtube.com/watch?v={video_id}") == video_id
+    )
+    assert youtube.get_video_id(f"https://youtu.be/{video_id}") == video_id
+    assert (
+        youtube.get_video_id(f"https://www.youtube.com/shorts/{video_id}") == video_id
+    )
     assert youtube.get_video_id("https://example.test/video") is None
 
     monkeypatch.setattr(youtube, "YouTube", lambda url: {"url": url})
@@ -132,6 +137,32 @@ def test_youtube_url_detection_and_wrapped_provider_errors(monkeypatch) -> None:
         youtube.get_video("url")
     with pytest.raises(YouTubeError):
         youtube.get_playlist_videos("url")
+
+
+def test_get_video_title_falls_back_to_oembed(monkeypatch) -> None:
+    class Video:
+        video_id = "A4Ncs9gXBAI"
+
+        @property
+        def title(self) -> str:
+            raise RuntimeError("metadata request rejected")
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self) -> str:
+            return '{"title": "Fallback title"}'
+
+    monkeypatch.setattr(youtube, "urlopen", lambda *_args, **_kwargs: Response())
+
+    assert (
+        youtube.get_video_title(Video(), "https://www.youtube.com/watch?v=A4Ncs9gXBAI")
+        == "Fallback title"
+    )
 
 
 def test_get_transcription_uses_cache_fetches_and_handles_provider_errors(
