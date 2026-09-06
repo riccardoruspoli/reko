@@ -1,3 +1,62 @@
+## [0.3.0] - 2026-09-06
+
+### 🚀 Features
+
+- *(transcripts)* Cache raw transcript responses
+- *(web)* Hide generation tuning controls
+- *(deploy)* Add standalone container deployment
+- *(web)* Add transcript refresh toggle
+- *(jobs)* Add in-memory job manager
+- *(jobs)* Expose asynchronous progress API
+- *(web)* Show asynchronous job progress
+- *(jobs)* Report cache and phase metrics
+- *(web)* Add job retry control
+
+### 🐛 Bug Fixes
+
+- *(web)* Resume SSE after polling fallback
+- *(jobs)* Redact sensitive error details
+- *(web)* Handle cancelled jobs and metadata failures
+- *(web)* Sanitize rendered markdown
+- *(compat)* Support Python 3.10 timezones
+- *(ci)* Use uv dependabot ecosystem
+
+### 🚜 Refactor
+
+- *(api)* Rename health endpoint
+- *(release)* Derive runtime version from package metadata
+
+### 📚 Documentation
+
+- *(release)* Describe publishing prerequisites
+- *(web)* Describe asynchronous job lifecycle
+
+### 🎨 Styling
+
+- *(test)* Format test suite
+
+### 🧪 Testing
+
+- Replace live tox checks with pytest
+- *(transcripts)* Cover cache refresh behavior
+- *(core)* Cover pure processing helpers
+- *(adapters)* Cover provider boundaries
+- *(generation)* Cover model workflow retries
+- *(cli)* Cover command handling
+- *(services)* Cover orchestration paths
+- *(api)* Cover compatibility and service flows
+- Enforce meaningful coverage gate
+- *(jobs)* Cover lifecycle and availability
+- *(web)* Exercise job progress scenarios
+- *(web)* Remove frontend harness
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Add uv build and publishing workflows
+- *(test)* Align uv development checks
+- *(python)* Pin local interpreter version
+- *(test)* Enforce coverage reports
+- *(deploy)* Configure job concurrency
 ## [0.2.0] - 2026-06-08
 
 ### 🚀 Features
