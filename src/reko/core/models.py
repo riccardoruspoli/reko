@@ -9,7 +9,7 @@ from reko.core.markdown import (
     _summary_document_to_markdown,
 )
 
-DEFAULT_TARGET_CHUNK_WORDS = 800
+DEFAULT_TARGET_CHUNK_WORDS = 1200
 DEFAULT_MAX_TOKENS = 16384
 
 

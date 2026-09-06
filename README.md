@@ -42,7 +42,7 @@ At a high level, `reko` follows a simple pipeline:
 1. Resolve the input target (video, playlist, or file).
 2. Fetch the YouTube transcript in the requested language, with fallback and translation when needed.
 3. Split the transcript into word-based chunks.
-4. Summarize each chunk independently.
+4. Summarize each chunk independently (1,200 words per chunk by default).
 5. Merge chunk summaries into a coherent final result.
 6. Output a Markdown file and/or print to stdout.
 7. Optionally extract key points from the generated summary.
