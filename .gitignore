@@ -18,3 +18,4 @@ data/
 coverage.xml
 .uv-cache/
 .env
+benchmark/

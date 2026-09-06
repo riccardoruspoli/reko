@@ -3,6 +3,7 @@ services:
     image: ghcr.io/riccardoruspoli/reko:${REKO_TAG:-latest}
     build:
       context: .
+    user: "${REKO_UID:-10001}:${REKO_GID:-10001}"
     ports:
       - "${REKO_PORT:-8000}:8000"
     environment:

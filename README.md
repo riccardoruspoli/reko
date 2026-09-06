@@ -169,6 +169,22 @@ docker compose up -d
 
 Open `http://YOUR_SERVER:8000`. Transcript cache files are persisted in `./data`. For an Ollama service running on the Docker host, use `http://host.docker.internal:11434` in the UI; for a different host, use an address reachable from the container.
 
+The image runs as UID/GID `10001` by default. If `./data` is managed by your host user, set its actual numeric IDs in `.env` and align the directory ownership before starting the service:
+
+```bash
+REKO_UID=1000
+REKO_GID=1000
+sudo chown -R 1000:1000 ./data
+```
+
+Use `id -u` and `id -g` to obtain the correct values instead of assuming `1000`. The container only receives the provider credentials explicitly declared in `compose.yaml`. For example, to use an OpenAI key from an ignored local `.env`, add this entry under the Compose service `environment` mapping:
+
+```yaml
+OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+```
+
+Then add `OPENAI_API_KEY=...` to `.env` and protect it with `chmod 600 .env`. Do not commit provider credentials.
+
 Check service health with:
 
 ```bash
@@ -192,6 +208,8 @@ uv build
 The release workflow runs when a `vX.Y.Z` tag is pushed. It runs the offline quality checks, builds the Python distributions, publishes to PyPI through Trusted Publishing, pushes a tagged image to GHCR, and creates GitHub release notes with git-cliff.
 
 Before the first release, configure PyPI Trusted Publishing for this repository and the `release.yml` workflow, create the protected GitHub environment named `pypi`, and set the GHCR package visibility you want. Set the release version in `pyproject.toml`; the workflow verifies that the tag version matches it.
+
+If a tagged release fails after PyPI accepts the artifacts, fix the later workflow configuration and rerun the workflow. Existing identical PyPI artifacts are skipped, so the rerun can continue to GHCR and the GitHub Release.
 
 To refresh the committed changelog before creating a release, run git-cliff locally:
 
