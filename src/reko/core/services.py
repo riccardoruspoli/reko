@@ -27,6 +27,19 @@ def _count_words(text: str) -> int:
     return len(_WORD_RE.findall(text))
 
 
+def _video_title(video: YouTube) -> str:
+    try:
+        title = str(video.title).strip()
+    except Exception as error:
+        logger.warning(
+            "Could not load the title for video %s; using a fallback title: %s",
+            video.video_id,
+            error,
+        )
+        return f"YouTube video {video.video_id}"
+    return title or f"YouTube video {video.video_id}"
+
+
 def _summarize_video_to_markdown(video: YouTube, config: SummaryConfig) -> str:
     logger.info("Processing video %s", video.video_id)
 
@@ -83,7 +96,7 @@ def _summarize_video_to_markdown(video: YouTube, config: SummaryConfig) -> str:
                 )
 
     markdown_summary = SummaryDocument(
-        title=video.title,
+        title=_video_title(video),
         summary=output.summary,
         key_points=output.key_points,
     ).to_markdown()
@@ -209,7 +222,7 @@ def summarize_one_with_stats(
     _ensure_not_cancelled(cancel_check)
     _report(progress, "rendering", "Rendering markdown")
     markdown_summary = SummaryDocument(
-        title=video.title,
+        title=_video_title(video),
         summary=output.summary,
         key_points=output.key_points,
     ).to_markdown()

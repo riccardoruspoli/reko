@@ -17,3 +17,4 @@ data/
 .coverage
 coverage.xml
 .uv-cache/
+.env

@@ -184,7 +184,7 @@ class JobManager:
         def report(event: ProgressEvent) -> None:
             with job.condition:
                 if job.cancel_requested:
-                    raise JobCancelledError()
+                    raise JobCancelledError("Job cancelled.")
                 self._complete_phase(job, event.phase)
                 job.phase = event.phase
                 job.message = event.message

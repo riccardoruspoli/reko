@@ -184,6 +184,40 @@ def test_active_job_cancellation_retention_and_event_reconnect() -> None:
         manager.shutdown()
 
 
+def test_cancellation_during_progress_is_reported_as_cancelled() -> None:
+    started = threading.Event()
+    release = threading.Event()
+
+    def runner(
+        url: str,
+        config: SummaryConfig,
+        report: ProgressReporter,
+        is_cancelled: CancelCheck,
+    ) -> dict[str, object]:
+        started.set()
+        release.wait(timeout=2)
+        report(ProgressEvent(phase="summarizing", message="Working"))
+        return {"url": url}
+
+    manager = JobManager(runner, max_concurrent_jobs=1)
+    try:
+        job = manager.submit("https://example.test/video", make_config())
+        assert started.wait(timeout=2)
+        assert manager.cancel(job["job_id"])["state"] == "cancelling"
+        release.set()
+
+        cancelled = wait_for(
+            manager,
+            job["job_id"],
+            lambda snapshot: snapshot["state"] == "cancelled",
+        )
+        assert cancelled["error"] is None
+        assert cancelled["message"] == "Job cancelled"
+    finally:
+        release.set()
+        manager.shutdown()
+
+
 def test_job_concurrency_environment_defaults(monkeypatch) -> None:
     monkeypatch.setenv("REKO_MAX_CONCURRENT_JOBS", "invalid")
     assert jobs._max_concurrent_jobs() == 1

@@ -57,7 +57,7 @@ Raw YouTube transcripts are cached locally by video ID and requested language. R
 
 ### Prerequisites
 
-- **Python 3.10–3.14** (tutte le versioni sono verificate in CI)
+- **Python 3.10–3.14** (all versions are verified in CI)
 - An LLM endpoint:
   - **Ollama** (local): install Ollama and pull the model you want to use.
   - **Hosted APIs** (for example `openai/...`): configure the required API keys in your environment. When using non-local providers, the required environment variables must be configured according to the supported provider of the model which can be found [here](https://docs.litellm.ai/docs/providers).

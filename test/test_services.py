@@ -154,3 +154,30 @@ def test_markdown_service_reuses_existing_output_and_saves_new_output(
     assert "## Summary" in result
     assert saved == [("id", result)]
     assert "## Summary" in capsys.readouterr().out
+
+
+def test_service_uses_a_fallback_title_when_metadata_is_unavailable(
+    monkeypatch,
+) -> None:
+    class Video:
+        video_id = "id"
+
+        @property
+        def title(self) -> str:
+            raise RuntimeError("metadata request rejected")
+
+    monkeypatch.setattr(
+        services,
+        "get_transcription",
+        lambda *_args, **_kwargs: fake_transcript(),
+    )
+    monkeypatch.setattr(services, "dspy_context", lambda _: nullcontext())
+    monkeypatch.setattr(
+        services,
+        "generate_summary_outputs",
+        lambda **_kwargs: SummaryOutput("summary", ["point"]),
+    )
+
+    result = services._summarize_video_to_markdown(Video(), config())
+
+    assert result.startswith("# YouTube video id")
