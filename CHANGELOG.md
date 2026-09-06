@@ -1,3 +1,13 @@
+## [0.3.1] - 2026-09-06
+
+### 🐛 Bug Fixes
+
+- *(cache)* Persist video titles with transcripts
+- *(metadata)* Backfill cached video titles
+
+### ⚙️ Miscellaneous Tasks
+
+- *(deploy)* Improve local deployment defaults
 ## [0.3.0] - 2026-09-06
 
 ### 🚀 Features

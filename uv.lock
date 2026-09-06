@@ -2186,7 +2186,7 @@ wheels = [
 
 [[package]]
 name = "reko-yt"
-version = "0.3.0"
+version = "0.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "bleach" },
