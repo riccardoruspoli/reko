@@ -62,6 +62,6 @@ jobs:
       - uses: orhun/git-cliff-action@v4
         with:
           args: --latest --strip header --output release-notes.md
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           body_path: release-notes.md
