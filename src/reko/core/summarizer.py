@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import dspy
 from tqdm import tqdm
@@ -126,6 +126,8 @@ def _direct_model_output(prompt: str, transcript_text: str) -> str:
     if not isinstance(response, list) or not response:
         raise ProcessingError("Direct model returned no text output.")
     output = response[0]
+    if isinstance(output, Mapping):
+        output = output.get("text")
     if not isinstance(output, str):
         raise ProcessingError("Direct model returned a non-text output.")
     return output

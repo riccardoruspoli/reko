@@ -222,3 +222,28 @@ def test_format_direct_transcript_uses_timestamps() -> None:
     assert (
         summarizer.format_direct_transcript(source) == "[00:04] First\n[01:05] Second"
     )
+
+
+def test_direct_model_output_accepts_dspy_responses_api_output(monkeypatch) -> None:
+    captured = {}
+
+    def fake_lm(**kwargs):
+        captured.update(kwargs)
+        return [{"text": "## Summary\n\nValid response"}]
+
+    monkeypatch.setattr(summarizer.dspy.settings, "lm", fake_lm)
+
+    assert summarizer._direct_model_output("system prompt", "transcript") == (
+        "## Summary\n\nValid response"
+    )
+    assert captured["messages"] == [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": "transcript"},
+    ]
+
+
+def test_direct_model_output_rejects_missing_text(monkeypatch) -> None:
+    monkeypatch.setattr(summarizer.dspy.settings, "lm", lambda **_kwargs: [{}])
+
+    with pytest.raises(ProcessingError, match="non-text"):
+        summarizer._direct_model_output("prompt", "transcript")
