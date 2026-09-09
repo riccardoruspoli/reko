@@ -32,7 +32,7 @@ By default, `reko` is local-first and privacy-friendly when used with Ollama, wh
 - Optimized for Small Language Models (SLMs), which are often sufficient for high-quality summarization.
 - Works with Ollama and cloud providers via APIs.
 - Multi-language summaries: uses native transcripts when available, with automatic fallback and translation.
-- Uses a one-pass, full-context workflow automatically for eligible official OpenAI models; falls back to transcript chunking for other providers and larger inputs.
+- Uses transcript chunking to handle long videos, with provider-specific optimizations where they are measured to help.
 - Skips reprocessing when a summary already exists (with an option to force regeneration).
 
 ## 🧠 How it works
@@ -41,11 +41,22 @@ At a high level, `reko` follows a simple pipeline:
 
 1. Resolve the input target (video, playlist, or file).
 2. Fetch the YouTube transcript in the requested language, with fallback and translation when needed.
-3. For official OpenAI models, estimate the actual input token count locally and use one full-context request when it is within a conservative model and cost limit.
-4. Otherwise, split the transcript into word-based chunks, summarize each chunk, and merge the results.
-5. Output a Markdown file and/or print to stdout, with optional key points.
+3. Split the transcript into word-based chunks, summarize each chunk, and merge the results.
+4. Output a Markdown file and/or print to stdout, with optional key points.
 
-The direct OpenAI route generates the selected Markdown sections in the target language, validates their structure, and retries malformed output. The chunked route remains the compatible fallback for every other provider and for inputs beyond the direct threshold.
+The portable chunked workflow is the default foundation. When a provider exposes
+capabilities that make a different route demonstrably worthwhile, reko can use it
+automatically while retaining the same output contract and safe fallback.
+
+### OpenAI routing optimization
+
+For eligible official OpenAI models, reko has a benchmarked full-context route.
+It estimates input tokens locally, uses one request when the transcript safely
+fits a conservative capacity and cost threshold, generates directly in the target
+language, and validates the requested Markdown sections. Other providers and
+larger inputs continue to use the portable chunked workflow. This is an
+implementation detail rather than a provider preference, and leaves room for
+future provider-specific routes supported by comparable evidence.
 
 ### Transcript cache
 
@@ -88,9 +99,9 @@ reko summarize 'https://www.youtube.com/watch?v=eMlx5fFNoYc' 'openai/gpt-5-nano'
 For OpenAI GPT-5 models, `reko` uses the Responses API and maps `--max-tokens` to
 OpenAI's completion-token limit. GPT-5 reasoning models only support the default
 sampling temperature, so custom `--temperature` values are ignored for those
-models. For official OpenAI models, reko uses LiteLLM's local model metadata and
-`tiktoken` to choose the full-context workflow without contacting an extra API.
-It reserves completion and safety tokens, and uses a conservative fallback limit
+models. Its benchmarked OpenAI route uses LiteLLM's local model metadata and
+`tiktoken` to choose a full-context request without contacting an extra API. It
+reserves completion and safety tokens, and uses a conservative fallback limit
 when metadata is unavailable. You can tune reasoning cost/latency with:
 
 ```bash
@@ -149,10 +160,9 @@ Notes:
 - The web UI supports single video URLs (no playlists/batch files).
 - Jobs run asynchronously. The UI streams progress with Server-Sent Events (SSE)
   and falls back to a one-second status poll when SSE is unavailable.
-- A job reports transcript-cache hit/miss, the selected workflow (full-context or
-  chunked fallback), token estimate and direct-route ceiling when applicable,
-  retries, input/output words, elapsed time, phase timings, and terminal
-  success/failure/cancellation.
+- A job reports transcript-cache hit/miss, the selected workflow, any applicable
+  token estimate and route ceiling, retries, input/output words, elapsed time,
+  phase timings, and terminal success/failure/cancellation.
 - Cancel is cooperative: an active LLM request is allowed to finish, but no next
   phase is started. Failed and cancelled jobs can be retried from the UI.
 - `REKO_MAX_CONCURRENT_JOBS` controls the in-memory job limit and defaults to
