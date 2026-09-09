@@ -292,6 +292,7 @@ def test_service_uses_direct_openai_route_without_translation(monkeypatch) -> No
     assert events[0].phase == "routing"
     assert events[0].metrics["workflow_route"] == "direct"
     assert events[0].metrics["direct_input_tokens"] == 100
+    assert events[0].metrics["model"] == "openai/gpt-5-nano"
 
 
 def test_service_falls_back_to_map_reduce_when_direct_route_is_ineligible(

@@ -287,7 +287,7 @@ def _generate_output(
         transcript=format_direct_transcript(transcript),
         max_completion_tokens=config.max_tokens,
     )
-    _report_route(progress, decision)
+    _report_route(progress, decision, model=config.model)
     with dspy_context(config):
         if decision.enabled:
             return generate_direct_summary_outputs(
@@ -333,11 +333,15 @@ def _generate_output(
 
 
 def _report_route(
-    progress: ProgressReporter | None, decision: DirectRouteDecision
+    progress: ProgressReporter | None,
+    decision: DirectRouteDecision,
+    *,
+    model: str,
 ) -> None:
     metrics: dict[str, int | float | str | bool] = {
         "workflow_route": "direct" if decision.enabled else "map_reduce",
         "route_reason": decision.reason,
+        "model": model,
     }
     if decision.input_tokens is not None:
         metrics["direct_input_tokens"] = decision.input_tokens
