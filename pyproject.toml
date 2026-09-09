@@ -35,6 +35,7 @@ dependencies = [
   "markdown~=3.10.2",
   "ollama~=0.6.2",
   "pytubefix>=10.9,<10.12",
+  "tiktoken>=0.13,<0.14",
   "tqdm>=4.68.1,<4.71.0",
   "uvicorn>=0.49,<0.53",
   "youtube-transcript-api~=1.2.4",
