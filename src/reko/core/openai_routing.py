@@ -121,9 +121,7 @@ def _price_breakpoint(capabilities: dict[str, Any]) -> int | None:
             thresholds = [item for item in value if isinstance(item, int) and item > 0]
             if thresholds:
                 return min(thresholds)
-        if key == "input_cost_per_token_above_272k_tokens" and isinstance(
-            value, float
-        ):
+        if key == "input_cost_per_token_above_272k_tokens" and isinstance(value, float):
             return 272_000
     return None
 

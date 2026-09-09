@@ -20,9 +20,15 @@ from reko.adapters.youtube import (
     is_playlist,
 )
 from reko.core.errors import InputError, JobCancelledError
-from reko.core.models import SummaryConfig, SummaryDocument, Transcript
+from reko.core.models import SummaryConfig, SummaryDocument, SummaryOutput, Transcript
+from reko.core.openai_routing import DirectRouteDecision, select_direct_route
 from reko.core.progress import CancelCheck, ProgressEvent, ProgressReporter
-from reko.core.summarizer import generate_summary_outputs
+from reko.core.prompt import build_direct_summary_prompt
+from reko.core.summarizer import (
+    format_direct_transcript,
+    generate_direct_summary_outputs,
+    generate_summary_outputs,
+)
 from reko.core.translation import translate_key_points, translate_text
 
 logger = logging.getLogger(__name__)
@@ -131,34 +137,7 @@ def _summarize_video_to_markdown(video: YouTube, config: SummaryConfig) -> str:
         config.target_language.name,
     )
 
-    with dspy_context(config):
-        output = generate_summary_outputs(
-            transcript=transcript,
-            target_chunk_words=config.target_chunk_words,
-            include_summary=config.include_summary,
-            include_key_points=config.include_key_points,
-            max_retries=config.max_retries,
-            summary_length=config.length,
-        )
-
-        if config.target_language.pt1 != transcript.language.pt1:
-            logger.info(
-                "Translating outputs from %s to %s",
-                transcript.language.name,
-                config.target_language.name,
-            )
-            if output.summary is not None:
-                output.summary = translate_text(
-                    output.summary,
-                    target_language=config.target_language.name,
-                    max_retries=config.max_retries,
-                )
-            if output.key_points is not None:
-                output.key_points = translate_key_points(
-                    output.key_points,
-                    target_language=config.target_language.name,
-                    max_retries=config.max_retries,
-                )
+    output = _generate_output(transcript, config)
 
     markdown_summary = SummaryDocument(
         title=_video_title(video),
@@ -249,37 +228,9 @@ def summarize_one_with_stats(
         metrics={"input_words": transcript.word_count},
     )
     _ensure_not_cancelled(cancel_check)
-    with dspy_context(config):
-        output = generate_summary_outputs(
-            transcript=transcript,
-            target_chunk_words=config.target_chunk_words,
-            include_summary=config.include_summary,
-            include_key_points=config.include_key_points,
-            max_retries=config.max_retries,
-            summary_length=config.length,
-            progress=progress,
-            cancel_check=cancel_check,
-        )
-
-        if config.target_language.pt1 != transcript.language.pt1:
-            _report(progress, "translating", "Translating output")
-            _ensure_not_cancelled(cancel_check)
-            if output.summary is not None:
-                output.summary = translate_text(
-                    output.summary,
-                    target_language=config.target_language.name,
-                    max_retries=config.max_retries,
-                    progress=progress,
-                    cancel_check=cancel_check,
-                )
-            if output.key_points is not None:
-                output.key_points = translate_key_points(
-                    output.key_points,
-                    target_language=config.target_language.name,
-                    max_retries=config.max_retries,
-                    progress=progress,
-                    cancel_check=cancel_check,
-                )
+    output = _generate_output(
+        transcript, config, progress=progress, cancel_check=cancel_check
+    )
 
     _ensure_not_cancelled(cancel_check)
     _report(progress, "rendering", "Rendering markdown")
@@ -314,6 +265,92 @@ def _report(
 ) -> None:
     if progress:
         progress(ProgressEvent(phase=phase, message=message, metrics=metrics or {}))
+
+
+def _generate_output(
+    transcript: Transcript,
+    config: SummaryConfig,
+    *,
+    progress: ProgressReporter | None = None,
+    cancel_check: CancelCheck | None = None,
+) -> SummaryOutput:
+    prompt = build_direct_summary_prompt(
+        include_summary=config.include_summary,
+        include_key_points=config.include_key_points,
+        summary_length=config.length,
+        language=config.target_language.name,
+    )
+    decision = select_direct_route(
+        model=config.model,
+        host=config.host,
+        prompt=prompt,
+        transcript=format_direct_transcript(transcript),
+        max_completion_tokens=config.max_tokens,
+    )
+    _report_route(progress, decision)
+    with dspy_context(config):
+        if decision.enabled:
+            return generate_direct_summary_outputs(
+                transcript=transcript,
+                prompt=prompt,
+                include_summary=config.include_summary,
+                include_key_points=config.include_key_points,
+                max_retries=config.max_retries,
+                summary_length=config.length,
+                progress=progress,
+                cancel_check=cancel_check,
+            )
+        output = generate_summary_outputs(
+            transcript=transcript,
+            target_chunk_words=config.target_chunk_words,
+            include_summary=config.include_summary,
+            include_key_points=config.include_key_points,
+            max_retries=config.max_retries,
+            summary_length=config.length,
+            progress=progress,
+            cancel_check=cancel_check,
+        )
+        if config.target_language.pt1 != transcript.language.pt1:
+            _report(progress, "translating", "Translating output")
+            _ensure_not_cancelled(cancel_check)
+            if output.summary is not None:
+                output.summary = translate_text(
+                    output.summary,
+                    target_language=config.target_language.name,
+                    max_retries=config.max_retries,
+                    progress=progress,
+                    cancel_check=cancel_check,
+                )
+            if output.key_points is not None:
+                output.key_points = translate_key_points(
+                    output.key_points,
+                    target_language=config.target_language.name,
+                    max_retries=config.max_retries,
+                    progress=progress,
+                    cancel_check=cancel_check,
+                )
+        return output
+
+
+def _report_route(
+    progress: ProgressReporter | None, decision: DirectRouteDecision
+) -> None:
+    metrics: dict[str, int | float | str | bool] = {
+        "workflow_route": "direct" if decision.enabled else "map_reduce",
+        "route_reason": decision.reason,
+    }
+    if decision.input_tokens is not None:
+        metrics["direct_input_tokens"] = decision.input_tokens
+    if decision.direct_input_ceiling_tokens is not None:
+        metrics["direct_input_ceiling_tokens"] = decision.direct_input_ceiling_tokens
+    _report(
+        progress,
+        "routing",
+        "Using full-context OpenAI workflow"
+        if decision.enabled
+        else "Using map-reduce workflow",
+        metrics=metrics,
+    )
 
 
 def _ensure_not_cancelled(cancel_check: CancelCheck | None) -> None:

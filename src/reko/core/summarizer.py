@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Sequence
 
+import dspy
 from tqdm import tqdm
 
 from reko.adapters.dspy.modules import (
@@ -37,6 +38,123 @@ def _get_length_profile(summary_length: str) -> LengthProfile:
 def _ensure_not_cancelled(cancel_check: CancelCheck | None) -> None:
     if cancel_check and cancel_check():
         raise JobCancelledError("Job cancelled.")
+
+
+def format_direct_transcript(transcript: Transcript) -> str:
+    """Format a transcript as chronological timestamped text for a direct request."""
+
+    lines = []
+    for segment in transcript.segments:
+        minutes, seconds = divmod(int(segment.start), 60)
+        lines.append(f"[{minutes:02d}:{seconds:02d}] {segment.text.strip()}")
+    return "\n".join(line for line in lines if line.strip())
+
+
+def generate_direct_summary_outputs(
+    *,
+    transcript: Transcript,
+    prompt: str,
+    include_summary: bool,
+    include_key_points: bool,
+    max_retries: int,
+    summary_length: str,
+    progress: ProgressReporter | None = None,
+    cancel_check: CancelCheck | None = None,
+) -> SummaryOutput:
+    """Generate requested outputs from a complete transcript in one validated call."""
+
+    transcript_text = format_direct_transcript(transcript)
+    if not transcript_text:
+        raise ProcessingError("Cannot summarize an empty transcript.")
+    minimum_points, maximum_points = _get_length_profile(summary_length)[
+        "bullet_ranges"
+    ]
+    last_error: ProcessingError | None = None
+    for attempt in range(max_retries + 1):
+        _ensure_not_cancelled(cancel_check)
+        if progress:
+            progress(
+                ProgressEvent(
+                    phase="direct",
+                    message="Generating full-context output",
+                    completed=attempt,
+                    total=max_retries + 1,
+                )
+            )
+        output = _direct_model_output(prompt, transcript_text)
+        try:
+            result = _parse_direct_output(
+                output,
+                include_summary=include_summary,
+                include_key_points=include_key_points,
+                minimum_points=minimum_points,
+                maximum_points=maximum_points,
+            )
+        except ProcessingError as error:
+            last_error = error
+            logger.warning(
+                "Direct output failed validation (attempt %d/%d): %s",
+                attempt + 1,
+                max_retries + 1,
+                error,
+            )
+            continue
+        if progress:
+            progress(
+                ProgressEvent(
+                    phase="direct",
+                    message="Generated full-context output",
+                    completed=attempt + 1,
+                    total=max_retries + 1,
+                    metrics={"direct_attempts": attempt + 1},
+                )
+            )
+        return result
+    raise ProcessingError(
+        "Direct output failed validation after "
+        f"{max_retries + 1} attempts: {last_error}"
+    )
+
+
+def _direct_model_output(prompt: str, transcript_text: str) -> str:
+    response = dspy.settings.lm(
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": transcript_text},
+        ]
+    )
+    if not isinstance(response, list) or not response:
+        raise ProcessingError("Direct model returned no text output.")
+    output = response[0]
+    if not isinstance(output, str):
+        raise ProcessingError("Direct model returned a non-text output.")
+    return output
+
+
+def _parse_direct_output(
+    output: str,
+    *,
+    include_summary: bool,
+    include_key_points: bool,
+    minimum_points: int,
+    maximum_points: int,
+) -> SummaryOutput:
+    from reko.core.models import SummaryDocument
+
+    if include_summary and "## Summary" not in output:
+        raise ProcessingError("Direct output is missing the Summary heading.")
+    if include_key_points and "## Key Points" not in output:
+        raise ProcessingError("Direct output is missing the Key Points heading.")
+    document = SummaryDocument.from_markdown(output)
+    if include_summary and not is_valid_tldr(document.summary or "", 40):
+        raise ProcessingError("Direct output is missing a valid Summary section.")
+    points = document.key_points or []
+    if include_key_points and not minimum_points <= len(points) <= maximum_points:
+        raise ProcessingError("Direct output has an invalid Key Points section.")
+    return SummaryOutput(
+        summary=document.summary if include_summary else None,
+        key_points=points if include_key_points else None,
+    )
 
 
 def _summarize_chunks(

@@ -10,6 +10,7 @@ from reko.adapters.transcript_cache import CachedTranscript
 from reko.core import services
 from reko.core.errors import InputError, JobCancelledError
 from reko.core.models import SummaryConfig, SummaryOutput, Transcript, TranscriptSegment
+from reko.core.openai_routing import DirectRouteDecision
 
 
 def config(**changes: object) -> SummaryConfig:
@@ -246,3 +247,90 @@ def test_service_uses_a_fallback_title_when_metadata_is_unavailable(
     result = services._summarize_video_to_markdown(Video(), config())
 
     assert result.startswith("# YouTube video id")
+
+
+def test_service_uses_direct_openai_route_without_translation(monkeypatch) -> None:
+    monkeypatch.setattr(
+        services,
+        "select_direct_route",
+        lambda **_kwargs: DirectRouteDecision(
+            enabled=True,
+            reason="eligible",
+            input_tokens=100,
+            direct_input_ceiling_tokens=10_000,
+        ),
+    )
+    monkeypatch.setattr(services, "dspy_context", lambda _: nullcontext())
+    monkeypatch.setattr(
+        services,
+        "generate_direct_summary_outputs",
+        lambda **kwargs: (
+            assert_direct_kwargs(kwargs) or SummaryOutput("direct summary", ["point"])
+        ),
+    )
+    monkeypatch.setattr(
+        services,
+        "generate_summary_outputs",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("must not map-reduce")),
+    )
+    monkeypatch.setattr(
+        services,
+        "translate_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("must not translate")
+        ),
+    )
+    events = []
+
+    output = services._generate_output(
+        fake_transcript("en"),
+        config(model="openai/gpt-5-nano", target_language=Lang("it")),
+        progress=events.append,
+    )
+
+    assert output == SummaryOutput("direct summary", ["point"])
+    assert events[0].phase == "routing"
+    assert events[0].metrics["workflow_route"] == "direct"
+    assert events[0].metrics["direct_input_tokens"] == 100
+
+
+def test_service_falls_back_to_map_reduce_when_direct_route_is_ineligible(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        services,
+        "select_direct_route",
+        lambda **_kwargs: DirectRouteDecision(
+            enabled=False,
+            reason="input_exceeds_direct_ceiling",
+            input_tokens=20_000,
+            direct_input_ceiling_tokens=10_000,
+        ),
+    )
+    monkeypatch.setattr(services, "dspy_context", lambda _: nullcontext())
+    monkeypatch.setattr(
+        services,
+        "generate_direct_summary_outputs",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("must not use direct")),
+    )
+    monkeypatch.setattr(
+        services,
+        "generate_summary_outputs",
+        lambda **_kwargs: SummaryOutput("chunked summary", ["point"]),
+    )
+    events = []
+
+    output = services._generate_output(
+        fake_transcript(), config(model="openai/gpt-5-nano"), progress=events.append
+    )
+
+    assert output == SummaryOutput("chunked summary", ["point"])
+    assert events[0].metrics["workflow_route"] == "map_reduce"
+    assert events[0].metrics["route_reason"] == "input_exceeds_direct_ceiling"
+
+
+def assert_direct_kwargs(kwargs: dict[str, object]) -> bool:
+    assert kwargs["include_summary"] is True
+    assert kwargs["include_key_points"] is True
+    assert "Respond in Italian" in str(kwargs["prompt"])
+    return False

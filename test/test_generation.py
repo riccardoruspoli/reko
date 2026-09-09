@@ -155,3 +155,70 @@ def test_generation_errors_when_models_never_produce_valid_output(monkeypatch) -
         )
     with pytest.raises(ProcessingError, match="Translation failed"):
         translation.translate_text("source", "Italian", 0)
+
+
+def test_direct_generation_validates_and_retries(monkeypatch) -> None:
+    responses = iter(
+        [
+            "## Summary\n\ntoo short\n\n## Key Points\n\n- Point",
+            "## Summary\n\n"
+            + VALID_SUMMARY
+            + "\n\n## Key Points\n\n- First\n- Second\n- Third",
+        ]
+    )
+    monkeypatch.setattr(
+        summarizer, "_direct_model_output", lambda *_args: next(responses)
+    )
+    events = []
+
+    output = summarizer.generate_direct_summary_outputs(
+        transcript=transcript(),
+        prompt="prompt",
+        include_summary=True,
+        include_key_points=True,
+        max_retries=1,
+        summary_length="medium",
+        progress=events.append,
+    )
+
+    assert output == SummaryOutput(VALID_SUMMARY, ["First", "Second", "Third"])
+    assert events[-1].metrics == {"direct_attempts": 2}
+
+
+def test_direct_generation_handles_requested_sections_and_exhaustion(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        summarizer,
+        "_direct_model_output",
+        lambda *_args: "## Key Points\n\n- First\n- Second\n- Third",
+    )
+    key_points = summarizer.generate_direct_summary_outputs(
+        transcript=transcript(),
+        prompt="prompt",
+        include_summary=False,
+        include_key_points=True,
+        max_retries=0,
+        summary_length="medium",
+    )
+    assert key_points == SummaryOutput(None, ["First", "Second", "Third"])
+
+    with pytest.raises(ProcessingError, match="Direct output failed validation"):
+        summarizer.generate_direct_summary_outputs(
+            transcript=transcript(),
+            prompt="prompt",
+            include_summary=True,
+            include_key_points=False,
+            max_retries=0,
+            summary_length="short",
+        )
+
+
+def test_format_direct_transcript_uses_timestamps() -> None:
+    source = Transcript(
+        [TranscriptSegment("First", 4, 1), TranscriptSegment("Second", 65, 1)],
+        Lang("en"),
+    )
+    assert (
+        summarizer.format_direct_transcript(source) == "[00:04] First\n[01:05] Second"
+    )

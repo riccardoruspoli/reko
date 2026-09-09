@@ -123,3 +123,35 @@ def build_key_points_guidance(
     if language:
         guidance += f" Respond in {language}."
     return guidance
+
+
+def build_direct_summary_prompt(
+    *,
+    include_summary: bool,
+    include_key_points: bool,
+    summary_length: str,
+    language: str,
+) -> str:
+    """Build instructions for a single full-context summary request."""
+
+    if not include_summary and not include_key_points:
+        raise ValueError("At least one output section must be requested.")
+    profile = LENGTH_PROFILES[summary_length]
+    sections: list[str] = []
+    if include_summary:
+        sections.append("## Summary followed by a concise factual narrative.")
+    if include_key_points:
+        minimum, maximum = profile["bullet_ranges"]
+        sections.append(
+            "## Key Points followed by "
+            f"{minimum} to {maximum} '- ' Markdown bullets in chronological order."
+        )
+    return (
+        "Create a concise, factual summary of the timestamped YouTube transcript. "
+        "Cover the central thesis, material mechanism or argument, and concrete outcomes. "
+        "Preserve names, numbers, qualifiers, uncertainty, and chronology when clear. "
+        "Do not invent facts, correct ambiguous transcription, mention the transcript, or include sponsors, calls to action, credits, or housekeeping unless central. "
+        f"{profile['length_guidance']} Respond in {language}. "
+        "Return only the requested Markdown sections, using exactly these headings: "
+        + " ".join(sections)
+    )
