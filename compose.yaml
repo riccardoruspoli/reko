@@ -11,6 +11,12 @@ services:
       REKO_MAX_CONCURRENT_JOBS: ${REKO_MAX_CONCURRENT_JOBS:-1}
     volumes:
       - ./data:/data
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

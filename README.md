@@ -182,6 +182,11 @@ docker compose up -d
 
 Open `http://YOUR_SERVER:8000`. Transcript cache files are persisted in `./data`. For an Ollama service running on the Docker host, use `http://host.docker.internal:11434` in the UI; for a different host, use an address reachable from the container.
 
+Container logs remain available through Docker, for example with `docker compose
+logs -f reko`. The Compose service uses Docker's `local` logging driver with
+compression and rotation: up to three 10 MiB files are retained per container.
+Docker manages these files in its own data directory; do not edit them directly.
+
 The image runs as UID/GID `10001` by default. If `./data` is managed by your host user, set its actual numeric IDs in `.env` and align the directory ownership before starting the service:
 
 ```bash
