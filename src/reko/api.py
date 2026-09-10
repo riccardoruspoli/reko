@@ -212,7 +212,7 @@ def create_app(job_runner: JobRunner | None = None) -> FastAPI:
         response = templates.TemplateResponse(
             request,
             "index.html",
-            {"csp_nonce": nonce},
+            {"csp_nonce": nonce, "app_version": __version__},
         )
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
