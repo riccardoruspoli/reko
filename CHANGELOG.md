@@ -1,3 +1,29 @@
+## [0.4.0] - 2026-09-10
+
+### 🚀 Features
+
+- *(config)* Increase default chunk size to 1200 words
+- *(routing)* Add OpenAI direct route selection
+- *(workflow)* Add direct OpenAI summary generation
+
+### 🐛 Bug Fixes
+
+- *(workflow)* Report selected model in job metrics
+- *(workflow)* Normalize Responses API output
+- *(ui)* Order reasoning effort options
+- *(prompt)* Enforce direct output language
+
+### 📚 Documentation
+
+- *(readme)* Clarify provider-neutral routing
+
+### 🧪 Testing
+
+- *(config)* Pin the selected chunking default
+
+### ⚙️ Miscellaneous Tasks
+
+- *(docker)* Rotate container logs
 ## [0.3.1] - 2026-09-06
 
 ### 🐛 Bug Fixes
