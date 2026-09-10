@@ -333,5 +333,5 @@ def test_service_falls_back_to_map_reduce_when_direct_route_is_ineligible(
 def assert_direct_kwargs(kwargs: dict[str, object]) -> bool:
     assert kwargs["include_summary"] is True
     assert kwargs["include_key_points"] is True
-    assert "Respond in Italian" in str(kwargs["prompt"])
+    assert "Respond only in Italian" in str(kwargs["prompt"])
     return False

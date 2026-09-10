@@ -17,6 +17,7 @@ from reko.core.models import (
 from reko.core.prompt import (
     _format_timestamp,
     build_chunk_context,
+    build_direct_summary_prompt,
     build_key_points_guidance,
     build_reduce_context,
     format_mapped_chunks,
@@ -96,6 +97,15 @@ def test_prompt_builders_include_expected_context() -> None:
     assert "Respond in Italian" in build_key_points_guidance(
         min_bullets=2, max_bullets=4, language="Italian"
     )
+    direct_prompt = build_direct_summary_prompt(
+        include_summary=True,
+        include_key_points=True,
+        summary_length="medium",
+        language="Italian",
+    )
+    assert "Output-language requirement" in direct_prompt
+    assert "every Markdown bullet in Italian" in direct_prompt
+    assert "Respond only in Italian" in direct_prompt
 
 
 def test_markdown_round_trip_and_summary_storage(tmp_path, monkeypatch) -> None:

@@ -147,11 +147,13 @@ def build_direct_summary_prompt(
             f"{minimum} to {maximum} '- ' Markdown bullets in chronological order."
         )
     return (
+        f"Output-language requirement: write every prose sentence and every Markdown bullet in {language}. "
+        "Do not return prose in the transcript's language; keep only proper nouns, product names, and quoted text unchanged when necessary. "
         "Create a concise, factual summary of the timestamped YouTube transcript. "
         "Cover the central thesis, material mechanism or argument, and concrete outcomes. "
         "Preserve names, numbers, qualifiers, uncertainty, and chronology when clear. "
         "Do not invent facts, correct ambiguous transcription, mention the transcript, or include sponsors, calls to action, credits, or housekeeping unless central. "
-        f"{profile['length_guidance']} Respond in {language}. "
+        f"{profile['length_guidance']} Respond only in {language}. "
         "Return only the requested Markdown sections, using exactly these headings: "
         + " ".join(sections)
     )
