@@ -35,13 +35,19 @@ def _is_legacy_gpt5_model(model: str) -> bool:
 
 
 def _gpt5_lm_kwargs(config: SummaryConfig) -> dict:
-    reasoning_effort = config.reasoning_effort or "low"
-    if reasoning_effort not in SUPPORTED_GPT5_REASONING_EFFORTS:
+    reasoning_effort = config.reasoning_effort
+    if (
+        reasoning_effort is not None
+        and reasoning_effort not in SUPPORTED_GPT5_REASONING_EFFORTS
+    ):
         raise ValueError(
             "reasoning_effort must be one of: "
             + ", ".join(sorted(SUPPORTED_GPT5_REASONING_EFFORTS))
         )
-    if _is_legacy_gpt5_model(config.model) and reasoning_effort in {"none", "xhigh"}:
+    if _is_legacy_gpt5_model(config.model) and reasoning_effort in {
+        "none",
+        "xhigh",
+    }:
         raise ValueError(
             f"{config.model} does not support reasoning_effort={reasoning_effort!r}; "
             "use minimal, low, medium, or high."
@@ -56,8 +62,9 @@ def _gpt5_lm_kwargs(config: SummaryConfig) -> dict:
     lm_kwargs = {
         "model_type": "responses",
         "temperature": None,
-        "reasoning": {"effort": reasoning_effort},
     }
+    if reasoning_effort is not None:
+        lm_kwargs["reasoning"] = {"effort": reasoning_effort}
     if _is_legacy_gpt5_model(config.model):
         lm_kwargs["max_tokens"] = config.max_tokens
     else:

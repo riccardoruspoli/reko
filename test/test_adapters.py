@@ -55,6 +55,10 @@ def test_dspy_model_configuration_and_context_creation(monkeypatch) -> None:
     )
     modern = dspy_config._gpt5_lm_kwargs(summary_config("openai/gpt-5.2"))
     assert modern["max_completion_tokens"] == 321
+    assert "reasoning" not in modern
+    assert dspy_config._gpt5_lm_kwargs(
+        summary_config("openai/gpt-5.2", reasoning_effort="none")
+    )["reasoning"] == {"effort": "none"}
     with pytest.raises(ValueError, match="reasoning_effort"):
         dspy_config._gpt5_lm_kwargs(
             summary_config("openai/gpt-5.2", reasoning_effort="invalid")
