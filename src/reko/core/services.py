@@ -26,6 +26,7 @@ from reko.core.progress import CancelCheck, ProgressEvent, ProgressReporter
 from reko.core.prompt import build_direct_summary_prompt
 from reko.core.summarizer import (
     format_direct_transcript,
+    generate_brief,
     generate_direct_summary_outputs,
     generate_summary_outputs,
 )
@@ -143,6 +144,7 @@ def _summarize_video_to_markdown(video: YouTube, config: SummaryConfig) -> str:
         title=_video_title(video),
         summary=output.summary,
         key_points=output.key_points,
+        brief=output.brief,
     ).to_markdown()
 
     logger.debug("Output generated with %d characters", len(markdown_summary))
@@ -238,6 +240,7 @@ def summarize_one_with_stats(
         title=_video_title(video),
         summary=output.summary,
         key_points=output.key_points,
+        brief=output.brief,
     ).to_markdown()
 
     elapsed_seconds = time.perf_counter() - started_at
@@ -274,9 +277,11 @@ def _generate_output(
     progress: ProgressReporter | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> SummaryOutput:
+    include_summary = config.include_summary or config.include_brief
+    include_key_points = config.include_key_points and not config.include_brief
     prompt = build_direct_summary_prompt(
-        include_summary=config.include_summary,
-        include_key_points=config.include_key_points,
+        include_summary=include_summary,
+        include_key_points=include_key_points,
         summary_length=config.length,
         language=config.target_language.name,
     )
@@ -290,45 +295,58 @@ def _generate_output(
     _report_route(progress, decision, model=config.model)
     with dspy_context(config):
         if decision.enabled:
-            return generate_direct_summary_outputs(
+            output = generate_direct_summary_outputs(
                 transcript=transcript,
                 prompt=prompt,
-                include_summary=config.include_summary,
-                include_key_points=config.include_key_points,
+                include_summary=include_summary,
+                include_key_points=include_key_points,
                 max_retries=config.max_retries,
                 summary_length=config.length,
                 progress=progress,
                 cancel_check=cancel_check,
             )
-        output = generate_summary_outputs(
-            transcript=transcript,
-            target_chunk_words=config.target_chunk_words,
-            include_summary=config.include_summary,
-            include_key_points=config.include_key_points,
-            max_retries=config.max_retries,
-            summary_length=config.length,
-            progress=progress,
-            cancel_check=cancel_check,
-        )
-        if config.target_language.pt1 != transcript.language.pt1:
-            _report(progress, "translating", "Translating output")
+        else:
+            output = generate_summary_outputs(
+                transcript=transcript,
+                target_chunk_words=config.target_chunk_words,
+                include_summary=include_summary,
+                include_key_points=include_key_points,
+                max_retries=config.max_retries,
+                summary_length=config.length,
+                progress=progress,
+                cancel_check=cancel_check,
+            )
+            if config.target_language.pt1 != transcript.language.pt1:
+                _report(progress, "translating", "Translating output")
+                _ensure_not_cancelled(cancel_check)
+                if output.summary is not None:
+                    output.summary = translate_text(
+                        output.summary,
+                        target_language=config.target_language.name,
+                        max_retries=config.max_retries,
+                        progress=progress,
+                        cancel_check=cancel_check,
+                    )
+                if output.key_points is not None:
+                    output.key_points = translate_key_points(
+                        output.key_points,
+                        target_language=config.target_language.name,
+                        max_retries=config.max_retries,
+                        progress=progress,
+                        cancel_check=cancel_check,
+                    )
+        if config.include_brief:
+            _report(progress, "briefing", "Preparing Brief")
             _ensure_not_cancelled(cancel_check)
-            if output.summary is not None:
-                output.summary = translate_text(
-                    output.summary,
-                    target_language=config.target_language.name,
-                    max_retries=config.max_retries,
-                    progress=progress,
-                    cancel_check=cancel_check,
-                )
-            if output.key_points is not None:
-                output.key_points = translate_key_points(
-                    output.key_points,
-                    target_language=config.target_language.name,
-                    max_retries=config.max_retries,
-                    progress=progress,
-                    cancel_check=cancel_check,
-                )
+            output.brief = generate_brief(
+                output.summary or "",
+                language=config.target_language.name,
+                max_retries=config.max_retries,
+                progress=progress,
+                cancel_check=cancel_check,
+            )
+            output.summary = None
+            output.key_points = None
         return output
 
 

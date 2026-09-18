@@ -157,3 +157,19 @@ def build_direct_summary_prompt(
         "Return only the requested Markdown sections, using exactly these headings: "
         + " ".join(sections)
     )
+
+
+def build_brief_prompt(*, language: str) -> str:
+    """Build instructions for converting a validated summary into a Brief."""
+
+    return (
+        f"Output-language requirement: write every prose sentence and every Markdown bullet in {language}. "
+        "Turn the supplied factual video summary into a concise decision-oriented Brief. "
+        "Use only information supported by the supplied summary: preserve names, numbers, qualifiers, and uncertainty, and do not invent facts. "
+        "Return exactly these Markdown sections in this order: "
+        "## TL;DR with one or two sentences stating the central thesis; "
+        "## Key Points with three to five concrete '- ' Markdown bullets; "
+        "## So What? with a concise explanation of why the content matters or its consequences; "
+        "## Takeaway with a concise statement of what to remember, do, or consider. "
+        f"Respond only in {language}."
+    )

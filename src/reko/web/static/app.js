@@ -23,6 +23,7 @@ const refreshTranscriptToggle = document.getElementById(
 );
 const includeSummaryToggle = document.getElementById("include-summary");
 const includeKeyPointsToggle = document.getElementById("include-key-points");
+const includeBriefToggle = document.getElementById("include-brief");
 const copyMarkdownButton = document.getElementById("copy-markdown");
 const downloadMarkdownButton = document.getElementById("download-markdown");
 const inputWordsEl = document.getElementById("stats-input-words");
@@ -78,16 +79,29 @@ function resetProgress() {
 function updateProgress(job) {
   if (!job || !progressEl) return;
   progressEl.classList.remove("hidden");
-  if (progressMessageEl) progressMessageEl.textContent = job.message || "Working";
+  if (progressMessageEl)
+    progressMessageEl.textContent = job.message || "Working";
 
   const completed = Number(job.completed);
   const total = Number(job.total);
-  const hasProgress = Number.isFinite(completed) && Number.isFinite(total) && total > 0;
+  const hasProgress =
+    job.completed != null &&
+    job.total != null &&
+    Number.isFinite(completed) &&
+    Number.isFinite(total) &&
+    total > 0;
+  const isRetryProgress = ["direct", "briefing"].includes(job.phase);
   if (progressCountEl) {
-    progressCountEl.textContent = hasProgress ? `${completed}/${total}` : job.phase || "";
+    progressCountEl.textContent = hasProgress
+      ? isRetryProgress
+        ? `Retries: ${completed}/${total}`
+        : `${completed}/${total}`
+      : "";
   }
   if (progressBarEl) {
-    const percent = hasProgress ? Math.min(100, Math.max(0, (completed / total) * 100)) : 0;
+    const percent = hasProgress
+      ? Math.min(100, Math.max(0, (completed / total) * 100))
+      : 0;
     progressBarEl.style.width = `${percent}%`;
   }
 
@@ -150,7 +164,8 @@ async function pollJob() {
   try {
     const response = await fetch(`/api/jobs/${activeJobId}`);
     const data = await response.json();
-    if (!response.ok || data.ok === false) throw new Error(data.error || "Job lookup failed");
+    if (!response.ok || data.ok === false)
+      throw new Error(data.error || "Job lookup failed");
     applyJobSnapshot(data.job);
   } catch (error) {
     stopJobUpdates();
@@ -249,6 +264,7 @@ function readSettingsFromForm() {
     refreshTranscript: Boolean(refreshTranscriptToggle?.checked),
     includeSummary: Boolean(includeSummaryToggle?.checked ?? true),
     includeKeyPoints: Boolean(includeKeyPointsToggle?.checked ?? true),
+    includeBrief: Boolean(includeBriefToggle?.checked),
   };
 }
 
@@ -295,6 +311,9 @@ function applySettingsToForm(settings) {
     typeof settings.includeKeyPoints === "boolean"
   ) {
     includeKeyPointsToggle.checked = settings.includeKeyPoints;
+  }
+  if (includeBriefToggle && typeof settings.includeBrief === "boolean") {
+    includeBriefToggle.checked = settings.includeBrief;
   }
 
   if (temperatureInput && temperatureValue) {
@@ -351,6 +370,7 @@ function buildConfigPayload() {
     refreshTranscript: Boolean(refreshTranscriptToggle?.checked),
     includeSummary: Boolean(includeSummaryToggle?.checked ?? true),
     includeKeyPoints: Boolean(includeKeyPointsToggle?.checked ?? true),
+    includeBrief: Boolean(includeBriefToggle?.checked),
     length: lengthSelect?.value || "medium",
     reasoningEffort: reasoningEffortSelect?.value || null,
   };
@@ -410,9 +430,12 @@ if (cancelJobButton) {
     cancelJobButton.disabled = true;
     setStatus("Cancelling");
     try {
-      const response = await fetch(`/api/jobs/${activeJobId}`, { method: "DELETE" });
+      const response = await fetch(`/api/jobs/${activeJobId}`, {
+        method: "DELETE",
+      });
       const data = await response.json();
-      if (!response.ok || data.ok === false) throw new Error(data.error || "Cancellation failed");
+      if (!response.ok || data.ok === false)
+        throw new Error(data.error || "Cancellation failed");
       applyJobSnapshot(data.job);
     } catch (error) {
       cancelJobButton.disabled = false;
@@ -451,7 +474,29 @@ applySettingsToForm(loadCachedSettings());
   refreshTranscriptToggle,
   includeSummaryToggle,
   includeKeyPointsToggle,
+  includeBriefToggle,
 ].forEach(bindPersist);
+
+function enforceOutputSelection(changed) {
+  if (changed === includeBriefToggle && includeBriefToggle?.checked) {
+    if (includeSummaryToggle) includeSummaryToggle.checked = false;
+    if (includeKeyPointsToggle) includeKeyPointsToggle.checked = false;
+  } else if (
+    changed !== includeBriefToggle &&
+    changed?.checked &&
+    includeBriefToggle
+  ) {
+    includeBriefToggle.checked = false;
+  }
+  persistSettingsDebounced();
+}
+
+[includeSummaryToggle, includeKeyPointsToggle, includeBriefToggle].forEach(
+  (toggle) => {
+    if (toggle)
+      toggle.addEventListener("change", () => enforceOutputSelection(toggle));
+  },
+);
 
 if (temperatureInput && temperatureValue) {
   temperatureValue.textContent = temperatureInput.value;

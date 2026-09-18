@@ -7,6 +7,7 @@ from reko.adapters.storage import is_summary_complete, save_summary
 from reko.core.chunking import chunk_transcript
 from reko.core.errors import OutputError, ProcessingError
 from reko.core.models import (
+    BriefOutput,
     SummaryChunk,
     SummaryConfig,
     SummaryDocument,
@@ -27,7 +28,10 @@ from reko.core.transcript import resolve_language
 
 
 def config(
-    *, include_summary: bool = True, include_key_points: bool = True
+    *,
+    include_summary: bool = True,
+    include_key_points: bool = True,
+    include_brief: bool = False,
 ) -> SummaryConfig:
     return SummaryConfig(
         host=None,
@@ -44,6 +48,7 @@ def config(
         target_language=Lang("en"),
         length="medium",
         think=False,
+        include_brief=include_brief,
     )
 
 
@@ -117,10 +122,27 @@ def test_markdown_round_trip_and_summary_storage(tmp_path, monkeypatch) -> None:
     assert SummaryDocument.from_markdown("# Only title") == SummaryDocument(
         "Only title"
     )
+    brief_document = SummaryDocument(
+        "Brief",
+        brief=BriefOutput(
+            tldr="Thesis.",
+            key_points=["One", "Two", "Three"],
+            so_what="It matters.",
+            takeaway="Act carefully.",
+        ),
+    )
+    assert SummaryDocument.from_markdown(brief_document.to_markdown()) == brief_document
 
     monkeypatch.chdir(tmp_path)
     save_summary("video", markdown)
     assert is_summary_complete("summary/video.md", config())
+    brief_path = "summary/brief.md"
+    with open(brief_path, "w", encoding="utf-8") as handle:
+        handle.write(brief_document.to_markdown())
+    assert is_summary_complete(
+        brief_path,
+        config(include_summary=False, include_key_points=False, include_brief=True),
+    )
     assert not is_summary_complete("missing.md", config())
     assert is_summary_complete("summary/video.md", config(include_key_points=False))
 

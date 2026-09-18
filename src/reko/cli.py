@@ -140,6 +140,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Generate the key points section only.",
     )
+    output_mode.add_argument(
+        "--brief",
+        action="store_true",
+        help="Generate a concise four-section Brief instead of summary and key points.",
+    )
 
     output_destination = summarize_parser.add_mutually_exclusive_group()
     output_destination.add_argument(
@@ -183,9 +188,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     args.prog = parser.prog
 
     if args.command == "summarize":
-        # if neither summary-only nor key-points-only is set, generate both
-        args.summary = not args.key_points_only
-        args.key_points = not args.summary_only
+        # If no output mode is selected, generate both summary and key points.
+        args.summary = not (args.key_points_only or args.brief)
+        args.key_points = not (args.summary_only or args.brief)
 
         # default to both printing and saving
         if args.print_only:
@@ -224,6 +229,7 @@ def _build_config(args: argparse.Namespace) -> SummaryConfig:
         think=bool(args.think),
         reasoning_effort=args.reasoning_effort,
         refresh_transcript=bool(args.refresh_transcript),
+        include_brief=bool(args.brief),
     )
 
 

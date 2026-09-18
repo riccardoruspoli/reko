@@ -72,8 +72,11 @@ def _build_summary_config(config: dict) -> SummaryConfig:
 
     include_summary = bool(config["includeSummary"])
     include_key_points = bool(config["includeKeyPoints"])
-    if not (include_summary or include_key_points):
-        raise ValueError("At least one of summary/key points must be enabled.")
+    include_brief = bool(config.get("includeBrief", False))
+    if include_brief and (include_summary or include_key_points):
+        raise ValueError("Brief cannot be combined with summary or key points.")
+    if not (include_summary or include_key_points or include_brief):
+        raise ValueError("At least one output must be enabled.")
 
     temperature = float(config["temperature"])
     max_retries = int(config["maxRetries"])
@@ -101,6 +104,7 @@ def _build_summary_config(config: dict) -> SummaryConfig:
         think=think,
         reasoning_effort=reasoning_effort,
         refresh_transcript=refresh_transcript,
+        include_brief=include_brief,
     )
 
 

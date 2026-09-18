@@ -7,7 +7,7 @@ from iso639 import Lang
 
 from reko.core import summarizer, translation
 from reko.core.errors import JobCancelledError, ProcessingError
-from reko.core.models import SummaryOutput, Transcript, TranscriptSegment
+from reko.core.models import BriefOutput, SummaryOutput, Transcript, TranscriptSegment
 
 VALID_SUMMARY = " ".join(f"word{index}" for index in range(40))
 
@@ -247,3 +247,26 @@ def test_direct_model_output_rejects_missing_text(monkeypatch) -> None:
 
     with pytest.raises(ProcessingError, match="non-text"):
         summarizer._direct_model_output("prompt", "transcript")
+
+
+def test_brief_generation_validates_and_retries(monkeypatch) -> None:
+    responses = iter(
+        [
+            "## TL;DR\n\nToo many. Sentences. Here.\n\n## Key Points\n\n- One\n- Two\n- Three\n\n## So What?\n\nContext.\n\n## Takeaway\n\nRemember.",
+            "## TL;DR\n\nThe central thesis.\n\n## Key Points\n\n- First\n- Second\n- Third\n\n## So What?\n\nIt changes the decision context.\n\n## Takeaway\n\nConsider the evidence before acting.",
+        ]
+    )
+    monkeypatch.setattr(
+        summarizer, "_direct_model_output", lambda *_args: next(responses)
+    )
+
+    brief = summarizer.generate_brief(VALID_SUMMARY, language="English", max_retries=1)
+
+    assert brief == BriefOutput(
+        tldr="The central thesis.",
+        key_points=["First", "Second", "Third"],
+        so_what="It changes the decision context.",
+        takeaway="Consider the evidence before acting.",
+    )
+    with pytest.raises(ProcessingError, match="empty summary"):
+        summarizer.generate_brief("", language="English", max_retries=0)

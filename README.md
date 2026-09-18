@@ -4,7 +4,7 @@
 
 **Make YouTube videos readable** 🎥
 
-_A modern, local-first CLI tool to extract transcripts from YouTube and transform them into concise summaries and key points._
+_A modern, local-first CLI tool to extract transcripts from YouTube and transform them into concise summaries, key points, and briefs._
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![PyPI version](https://img.shields.io/pypi/v/reko-yt.svg)](https://pypi.org/project/reko-yt/)
@@ -16,7 +16,7 @@ _A modern, local-first CLI tool to extract transcripts from YouTube and transfor
 
 `reko` is a command-line tool that converts YouTube videos into clean Markdown summaries using transcripts and Large Language Models.
 
-Give it a video URL, a playlist, or a file containing multiple URLs, and `reko` will fetch the transcript and generate a readable Markdown document with a summary and optional key points.
+Give it a video URL, a playlist, or a file containing multiple URLs, and `reko` will fetch the transcript and generate a readable Markdown document with a summary, key points, or a concise Brief.
 
 It’s designed to be simple, fast, and automation-friendly, making it easy to extract useful information from long, informational videos.  
 By default, `reko` is local-first and privacy-friendly when used with Ollama, while still supporting paid cloud models when needed.
@@ -27,7 +27,7 @@ By default, `reko` is local-first and privacy-friendly when used with Ollama, wh
 
 ## 🚀 Features
 
-- Generate clean Markdown summaries with optional key points.
+- Generate clean Markdown summaries, key points, or a decision-oriented Brief.
 - Summarize a single video, a playlist, or a batch of URLs.
 - Optimized for Small Language Models (SLMs), which are often sufficient for high-quality summarization.
 - Works with Ollama and cloud providers via APIs.
@@ -121,6 +121,16 @@ reko summarize 'https://www.youtube.com/watch?v=eMlx5fFNoYc' \
   --print-only
 ```
 
+Generate a Brief when you want the central thesis, the important facts, why they
+matter, and a practical takeaway instead of a narrative summary:
+
+```bash
+reko summarize 'https://www.youtube.com/watch?v=eMlx5fFNoYc' \
+  'openai/gpt-5-nano' \
+  --brief \
+  --language it
+```
+
 Summarize a playlist or a batch of URLs:
 
 ```bash
@@ -157,7 +167,9 @@ reko serve --host 0.0.0.0 --port 8000  # expose on your LAN
 
 Notes:
 
-- The web UI supports single video URLs (no playlists/batch files).
+- The web UI supports single video URLs (no playlists/batch files) and lets you
+  choose Summary, Key Points, or Brief. Brief is exclusive because it derives
+  its own internal summary and renders a different four-section document.
 - Jobs run asynchronously. The UI streams progress with Server-Sent Events (SSE)
   and falls back to a one-second status poll when SSE is unavailable.
 - A job reports transcript-cache hit/miss, the selected workflow, any applicable

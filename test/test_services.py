@@ -9,7 +9,13 @@ from iso639 import Lang
 from reko.adapters.transcript_cache import CachedTranscript
 from reko.core import services
 from reko.core.errors import InputError, JobCancelledError
-from reko.core.models import SummaryConfig, SummaryOutput, Transcript, TranscriptSegment
+from reko.core.models import (
+    BriefOutput,
+    SummaryConfig,
+    SummaryOutput,
+    Transcript,
+    TranscriptSegment,
+)
 from reko.core.openai_routing import DirectRouteDecision
 
 
@@ -330,8 +336,70 @@ def test_service_falls_back_to_map_reduce_when_direct_route_is_ineligible(
     assert events[0].metrics["route_reason"] == "input_exceeds_direct_ceiling"
 
 
+def test_service_generates_brief_from_internal_summary(monkeypatch) -> None:
+    monkeypatch.setattr(
+        services,
+        "select_direct_route",
+        lambda **_kwargs: DirectRouteDecision(False, "not_openai", None, None),
+    )
+    monkeypatch.setattr(services, "dspy_context", lambda _: nullcontext())
+
+    def generate_summary_outputs(**kwargs):
+        assert kwargs["include_summary"] is True
+        assert kwargs["include_key_points"] is False
+        return SummaryOutput("internal summary", None)
+
+    monkeypatch.setattr(services, "generate_summary_outputs", generate_summary_outputs)
+    brief = BriefOutput("Thesis.", ["One", "Two", "Three"], "It matters.", "Act.")
+    monkeypatch.setattr(services, "generate_brief", lambda *_args, **_kwargs: brief)
+
+    output = services._generate_output(
+        fake_transcript(),
+        config(include_summary=False, include_key_points=False, include_brief=True),
+    )
+
+    assert output == SummaryOutput(None, None, brief)
+
+
+def test_service_generates_brief_after_direct_summary(monkeypatch) -> None:
+    monkeypatch.setattr(
+        services,
+        "select_direct_route",
+        lambda **_kwargs: DirectRouteDecision(True, "eligible", 100, 10_000),
+    )
+    monkeypatch.setattr(services, "dspy_context", lambda _: nullcontext())
+    monkeypatch.setattr(
+        services,
+        "generate_direct_summary_outputs",
+        lambda **kwargs: (
+            assert_brief_direct_kwargs(kwargs)
+            or SummaryOutput("internal summary", None)
+        ),
+    )
+    brief = BriefOutput("Thesis.", ["One", "Two", "Three"], "It matters.", "Act.")
+    monkeypatch.setattr(services, "generate_brief", lambda *_args, **_kwargs: brief)
+
+    output = services._generate_output(
+        fake_transcript(),
+        config(
+            model="openai/gpt-5-nano",
+            include_summary=False,
+            include_key_points=False,
+            include_brief=True,
+        ),
+    )
+
+    assert output == SummaryOutput(None, None, brief)
+
+
 def assert_direct_kwargs(kwargs: dict[str, object]) -> bool:
     assert kwargs["include_summary"] is True
     assert kwargs["include_key_points"] is True
     assert "Respond only in Italian" in str(kwargs["prompt"])
+    return False
+
+
+def assert_brief_direct_kwargs(kwargs: dict[str, object]) -> bool:
+    assert kwargs["include_summary"] is True
+    assert kwargs["include_key_points"] is False
     return False

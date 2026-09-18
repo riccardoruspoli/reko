@@ -1,4 +1,5 @@
 import logging
+import re
 from collections.abc import Mapping, Sequence
 
 import dspy
@@ -11,11 +12,12 @@ from reko.adapters.dspy.modules import (
 )
 from reko.core.chunking import chunk_transcript
 from reko.core.errors import JobCancelledError, ProcessingError
-from reko.core.models import SummaryChunk, SummaryOutput, Transcript
+from reko.core.models import BriefOutput, SummaryChunk, SummaryOutput, Transcript
 from reko.core.progress import CancelCheck, ProgressEvent, ProgressReporter
 from reko.core.prompt import (
     LENGTH_PROFILES,
     LengthProfile,
+    build_brief_prompt,
     build_chunk_context,
     build_key_points_guidance,
     build_reduce_context,
@@ -76,9 +78,13 @@ def generate_direct_summary_outputs(
             progress(
                 ProgressEvent(
                     phase="direct",
-                    message="Generating full-context output",
-                    completed=attempt,
-                    total=max_retries + 1,
+                    message=(
+                        "Generating full-context output"
+                        if attempt == 0
+                        else "Retrying full-context output"
+                    ),
+                    completed=attempt or None,
+                    total=max_retries if attempt else None,
                 )
             )
         output = _direct_model_output(prompt, transcript_text)
@@ -103,9 +109,13 @@ def generate_direct_summary_outputs(
             progress(
                 ProgressEvent(
                     phase="direct",
-                    message="Generated full-context output",
-                    completed=attempt + 1,
-                    total=max_retries + 1,
+                    message=(
+                        "Generated full-context output"
+                        if attempt == 0
+                        else "Generated full-context output after retry"
+                    ),
+                    completed=attempt or None,
+                    total=max_retries if attempt else None,
                     metrics={"direct_attempts": attempt + 1},
                 )
             )
@@ -157,6 +167,90 @@ def _parse_direct_output(
         summary=document.summary if include_summary else None,
         key_points=points if include_key_points else None,
     )
+
+
+def generate_brief(
+    summary: str,
+    *,
+    language: str,
+    max_retries: int,
+    progress: ProgressReporter | None = None,
+    cancel_check: CancelCheck | None = None,
+) -> BriefOutput:
+    """Generate a validated four-section Brief from a validated summary."""
+
+    if not summary.strip():
+        raise ProcessingError("Cannot generate a Brief from an empty summary.")
+    prompt = build_brief_prompt(language=language)
+    last_error: ProcessingError | None = None
+    for attempt in range(max_retries + 1):
+        _ensure_not_cancelled(cancel_check)
+        if progress:
+            progress(
+                ProgressEvent(
+                    phase="briefing",
+                    message="Generating Brief" if attempt == 0 else "Retrying Brief",
+                    completed=attempt or None,
+                    total=max_retries if attempt else None,
+                )
+            )
+        try:
+            brief = _parse_brief_output(_direct_model_output(prompt, summary))
+        except ProcessingError as error:
+            last_error = error
+            logger.warning(
+                "Brief output failed validation (attempt %d/%d): %s",
+                attempt + 1,
+                max_retries + 1,
+                error,
+            )
+            continue
+        if progress:
+            progress(
+                ProgressEvent(
+                    phase="briefing",
+                    message=(
+                        "Generated Brief"
+                        if attempt == 0
+                        else "Generated Brief after retry"
+                    ),
+                    completed=attempt or None,
+                    total=max_retries if attempt else None,
+                )
+            )
+        return brief
+    raise ProcessingError(
+        f"Brief output failed validation after {max_retries + 1} attempts: {last_error}"
+    )
+
+
+def _parse_brief_output(output: str) -> BriefOutput:
+    headers = ("TL;DR", "Key Points", "So What?", "Takeaway")
+    sections: dict[str, list[str]] = {header: [] for header in headers}
+    found_headers: list[str] = []
+    active_header: str | None = None
+    for line in output.splitlines():
+        if line.strip().startswith("## "):
+            heading = line.strip()[3:].strip()
+            found_headers.append(heading)
+            active_header = heading if heading in sections else None
+            continue
+        if active_header is not None:
+            sections[active_header].append(line)
+    if found_headers != list(headers):
+        raise ProcessingError("Brief output has invalid headings or section order.")
+    tldr = " ".join(line.strip() for line in sections["TL;DR"] if line.strip())
+    so_what = " ".join(line.strip() for line in sections["So What?"] if line.strip())
+    takeaway = " ".join(line.strip() for line in sections["Takeaway"] if line.strip())
+    points = normalize_key_points(sections["Key Points"])
+    if not tldr or not so_what or not takeaway:
+        raise ProcessingError("Brief output has an empty prose section.")
+    sentence_count = len(re.findall(r"[.!?](?:\s|$)", tldr)) or 1
+    if sentence_count > 2:
+        raise ProcessingError("Brief TL;DR must contain one or two sentences.")
+    if not 3 <= len(points) <= 5:
+        raise ProcessingError("Brief output must contain three to five key points.")
+    return BriefOutput(tldr=tldr, key_points=points, so_what=so_what, takeaway=takeaway)
 
 
 def _summarize_chunks(

@@ -31,6 +31,7 @@ class SummaryConfig:
     think: bool
     reasoning_effort: str | None = None
     refresh_transcript: bool = False
+    include_brief: bool = False
 
 
 @dataclass
@@ -77,11 +78,20 @@ class SummaryChunk:
 
 
 @dataclass
+class BriefOutput:
+    tldr: str
+    key_points: list[str]
+    so_what: str
+    takeaway: str
+
+
+@dataclass
 class SummaryOutput:
     """Model output payload."""
 
     summary: str | None
     key_points: list[str] | None
+    brief: BriefOutput | None = None
 
 
 @dataclass
@@ -91,6 +101,7 @@ class SummaryDocument:
     title: str
     summary: str | None = None
     key_points: list[str] | None = None
+    brief: BriefOutput | None = None
 
     def to_markdown(self) -> str:
         return _summary_document_to_markdown(self)

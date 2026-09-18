@@ -40,6 +40,23 @@ def test_parse_and_run_summarize_command(monkeypatch) -> None:
     assert received["config"].refresh_transcript is True
 
 
+def test_brief_mode_is_exclusive_in_the_cli(monkeypatch) -> None:
+    received = {}
+    monkeypatch.setattr(
+        cli,
+        "summarize",
+        lambda _target, config: received.update(config=config),
+    )
+
+    assert (
+        cli.main(["summarize", "https://example.test/video", "ollama/test", "--brief"])
+        == 0
+    )
+    assert received["config"].include_brief is True
+    assert received["config"].include_summary is False
+    assert received["config"].include_key_points is False
+
+
 def test_cli_validation_and_error_exit_codes(monkeypatch) -> None:
     with pytest.raises(SystemExit):
         cli._parse_args(["summarize", "url", "model", "--max-retries", "-1"])
