@@ -1,3 +1,14 @@
+## [0.5.0] - 2026-09-18
+
+### 🚀 Features
+
+- *(ui)* Show application version
+- *(ui)* Add logo
+- *(outputs)* Add decision-oriented brief
+
+### ⚙️ Miscellaneous Tasks
+
+- *(frontend)* Add prettier checks
 ## [0.4.0] - 2026-09-10
 
 ### 🚀 Features
