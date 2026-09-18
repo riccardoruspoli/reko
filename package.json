@@ -1,0 +1,11 @@
+{
+  "name": "reko-frontend-tools",
+  "private": true,
+  "scripts": {
+    "format:frontend": "prettier --write src test",
+    "format:frontend:check": "prettier --check src test"
+  },
+  "devDependencies": {
+    "prettier": "3.9.8"
+  }
+}

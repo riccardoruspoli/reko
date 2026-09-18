@@ -223,14 +223,30 @@ curl http://localhost:8000/health
 
 ## 🧪 Development
 
-All automated checks are offline and use mock data only. Install the development dependencies and run them with `uv`:
+All automated checks are offline and use mock data only. Install the Python
+development dependencies with `uv`. A normal checkout installs the pinned
+frontend tool version with `npm ci` from the committed `package-lock.json`.
+
+When introducing or updating frontend dependencies, use `npm install` once to
+update both `package.json` and `package-lock.json`. Commit both files, then use
+`npm ci` again for regular development and CI.
+
+Run the checks with:
 
 ```bash
 uv sync --group dev
+npm ci
 uv run ruff format --check src test
 uv run ruff check src test
+npm run format:frontend:check
 uv run python -m pytest --cov=src/reko --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=90
 uv build
+```
+
+Use the formatter on every HTML, CSS, and JavaScript source file when needed:
+
+```bash
+npm run format:frontend
 ```
 
 ## 🚀 Releases

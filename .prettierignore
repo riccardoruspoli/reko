@@ -1,0 +1,13 @@
+.git/
+.venv/
+.uv-cache/
+.pytest_cache/
+.ruff_cache/
+benchmark/
+build/
+data/
+dist/
+summary/
+transcripts/
+coverage.xml
+*.png
